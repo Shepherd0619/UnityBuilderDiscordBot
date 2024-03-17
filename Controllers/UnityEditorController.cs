@@ -1,4 +1,7 @@
-﻿using SimpleJSON;
+﻿using System.Diagnostics;
+using System.Text;
+using SimpleJSON;
+using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Utilities;
 
 namespace UnityBuilderDiscordBot.Controllers;
@@ -9,8 +12,9 @@ public static class UnityEditorController
     // -nographics -batchmode -quit -buildWindowsPlayer "${WORKSPACE}\Build\Windows\${BUILD_NUMBER}\output\your_game.exe"
 
     public static Dictionary<string, string> EditorInstallations;
-    public static string ProjectPath;
-    public static string UnityVersion;
+    public static List<UnityProjectModel> UnityProjects;
+    public static Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
+    public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
     
     public static bool Initialize()
     {
@@ -24,25 +28,115 @@ public static class UnityEditorController
             }
         }
 
-        ProjectPath = ConfigurationUtility.Configuration["Project"]["Path"];
-        if (string.IsNullOrWhiteSpace(ProjectPath))
+        UnityProjects = new List<UnityProjectModel>();
+        foreach (JSONNode node in ConfigurationUtility.Configuration["Projects"])
         {
-            Console.WriteLine($"[UnityEditorController] ProjectPath is empty!");
-            return false;
+            var model = new UnityProjectModel();
+            foreach (var kvp in node)
+            {
+                switch (kvp.Key)
+                {
+                    case "name":
+                        model.name = kvp.Value;
+                        break;
+                    
+                    case "path":
+                        model.path = kvp.Value;
+                        break;
+                    
+                    case "unityVersion":
+                        model.unityVersion = kvp.Value;
+                        break;
+                }
+            }
+            UnityProjects.Add(model);
+            Console.WriteLine($"[UnityEditorController] {model}");
         }
-        if (!Directory.Exists(ProjectPath))
+
+        if (UnityProjects.Count <= 0)
         {
-            Console.WriteLine($"[UnityEditorController] Project {Directory.GetParent(ProjectPath).Name} does not exist!");
+            Console.WriteLine($"[UnityEditorController] There is no project defined in appsettings.json!");
             return false;
         }
         
-        UnityVersion = ConfigurationUtility.Configuration["Project"]["unityVersion"];
-        if (string.IsNullOrWhiteSpace(UnityVersion) || !EditorInstallations.ContainsKey(UnityVersion))
+        return true;
+    }
+
+    public static async Task<bool> BuildWindowsPlayer64(string projectName)
+    {
+        var project = UnityProjects.Find(search => search.name == projectName);
+
+        if (project == null)
         {
-            Console.WriteLine(
-                $"[UnityEditorController] Project {Directory.GetParent(ProjectPath).Name} requires Unity Editor Installation of {UnityVersion}!");
+            Console.WriteLine($"[UnityEditorController] project {projectName} not exist!");
             return false;
         }
+
+        if (RunningProcesses.ContainsKey(project))
+        {
+            Console.WriteLine($"[UnityEditorController] {projectName}({project.path}) is still running!");
+            return false;
+        }
+
+        if (!EditorInstallations.TryGetValue(project.unityVersion, out var editor))
+        {
+            Console.WriteLine(
+                $"[UnityEditorController] Unity Editor installation {project.unityVersion} not exist! You must define it in appsettings.json!");
+            return false;
+        }
+
+        Process process = new Process();
+        var sb = new StringBuilder();
+        var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+        sb.Append(NecessaryCommandLineArgs);
+        sb.Append($"-projectPath \"{project.path}\" ");
+        sb.Append($"-buildWindows64Player \"{Path.Combine(project.path, $"Build/WindowsPlayer64/{timestamp}/{project.name}.exe")}\"");
+        process.StartInfo.FileName = editor;
+        process.StartInfo.Arguments = sb.ToString();
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        var output = new StringBuilder();
+        int lineCount = 0;
+        process.OutputDataReceived += (sender, args) =>
+        {
+            // Prepend line numbers to each line of the output.
+            if (!String.IsNullOrEmpty(args.Data))
+            {
+                lineCount++;
+                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                output.Append($"\n{log}");
+                Console.WriteLine(log);
+            }
+        };
+        if (!process.Start())
+        {
+            Console.WriteLine($"[UnityEditorController] Failed to start process for {projectName}.");
+            return false;
+        }
+        process.BeginOutputReadLine();
+        RunningProcesses.Add(project, process);
+        var buildStartLog =
+            $"[UnityEditorController] Start building WindowsPlayer64 for {project.name} ({project.path}). CommandLineArgs: {sb}";
+        output.Append(buildStartLog);
+        Console.WriteLine(buildStartLog);
+        
+        await process.WaitForExitAsync();
+        RunningProcesses.Remove(project);
+        
+        var buildExitLog =
+            $"\n[UnityEditorController] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
+        output.Append(buildExitLog);
+        Console.WriteLine(buildExitLog);
+        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        if (!Directory.Exists(logFolder))
+        {
+            Directory.CreateDirectory(logFolder);
+        }
+        await File.WriteAllTextAsync(logPath, output.ToString());
+        Console.WriteLine(
+            $"[UnityEditorController] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
         
         return true;
     }
