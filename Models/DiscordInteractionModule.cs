@@ -35,7 +35,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     public Task About()
     {
         return RespondAsync("Hi I am Unity Builder Bot, developed by Shepherd Zhu (AKA. Shepherd0619).\n" +
-                            "He is a nice Chinese guy and he likes yandere, Unity, C#, .NET so much.\n" +
+                            "He is a nice Chinese guy and he likes yandere, Black Lagoon, Unity, C#, .NET so much.\n" +
                             "My main job is to **help everyone (no matter whether he or she is programmer or not) build the Unity game executables and hot updates.**.\n" +
                             "If you like this bot, please consider following my master's social media and donate (if possible).\n" +
                             "If you need help, don't hesitate to contact my master.\n" +
@@ -55,15 +55,12 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
     
-    public async Task Notification(string message)
+    public static async Task Notification(string message)
     {
-        var channel =
-            await DiscordStartupService.Discord.GetChannelAsync(ConfigurationUtility.Configuration["Discord"]["channel"]
-                .AsULong) as IMessageChannel;
-
-        if (channel == null) return;
+        if (await DiscordStartupService.Discord.GetChannelAsync(
+                ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel channel) return;
         
-        await (channel as IMessageChannel).SendMessageAsync(message);
+        await channel.SendMessageAsync(message);
     }
 
     [SlashCommand("build_windows64", "Build a game executable for Windows 64-bit.")]
@@ -81,7 +78,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
 
         if (!UnityEditorController.CheckProjectIsRunning(project))
         {
-            return RespondAsync($"Project **{project}** is already running! Please check back another time.");
+            return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
         }
 
         var task = Task.Run(async () => await UnityEditorController.BuildWindowsPlayer64(projectName));
@@ -89,14 +86,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         {
             if (t.Result)
             {
-                await Notification($"Project **{project}** **WindowsPlayer64** build completed!");
+                await Notification($"**{project}** WindowsPlayer64 build completed!");
             }
             else
             {
                 await Notification(
-                    $"Project **{project}** **WindowsPlayer64** build failed! Please contact admin for error log.");
+                    $"**{project}** WindowsPlayer64 build failed! Please contact admin for error log.");
             }
         });
-        return RespondAsync($"Project **{project}** **WindowsPlayer64** build started!");
+        return RespondAsync($"**{project}** WindowsPlayer64 build started!", ephemeral: true);
     }
 }

@@ -139,6 +139,7 @@ public static class UnityEditorController
             $"[UnityEditorController] Start building WindowsPlayer64 for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         Console.WriteLine(buildStartLog);
+        await DiscordInteractionModule.Notification(buildStartLog);
         
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -147,6 +148,7 @@ public static class UnityEditorController
             $"\n[UnityEditorController] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         Console.WriteLine(buildExitLog);
+        await DiscordInteractionModule.Notification(buildExitLog);
         var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder))
