@@ -1,12 +1,12 @@
 ﻿using System.Text;
 using Discord;
 using Discord.Interactions;
-using Microsoft.Extensions.Primitives;
 using UnityBuilderDiscordBot.Controllers;
+using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
 
-namespace UnityBuilderDiscordBot.Models;
+namespace UnityBuilderDiscordBot.Modules;
 
 public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionContext>
 {
