@@ -1,5 +1,7 @@
-﻿using Discord;
+﻿using System.Text;
+using Discord;
 using Discord.Interactions;
+using Microsoft.Extensions.Primitives;
 using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -43,9 +45,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     [SlashCommand("settings", "Print appsettings.json.")]
+    [RequireUserPermission(GuildPermission.Administrator)]
     public Task PrintSettings()
     {
-        return RespondAsync(ConfigurationUtility.Configuration.ToString());
+        var sb = new StringBuilder();
+        sb.Append("```json\n");
+        sb.Append(ConfigurationUtility.Configuration.ToString());
+        sb.Append("```");
+        return RespondAsync(sb.ToString(), ephemeral: true);
     }
     
     public async Task Notification(string message)
