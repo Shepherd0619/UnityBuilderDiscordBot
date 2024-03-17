@@ -62,9 +62,9 @@ public static class UnityEditorController
         return true;
     }
 
-    public static async Task<bool> BuildWindowsPlayer64(string projectName)
+    public static bool TryGetProject(string projectName, out UnityProjectModel project)
     {
-        var project = UnityProjects.Find(search => search.name == projectName);
+        project = UnityProjects.Find(search => search.name == projectName);
 
         if (project == null)
         {
@@ -72,18 +72,37 @@ public static class UnityEditorController
             return false;
         }
 
-        if (RunningProcesses.ContainsKey(project))
+        return true;
+    }
+
+    public static bool CheckProjectIsRunning(UnityProjectModel project)
+    {
+        if (!RunningProcesses.ContainsKey(project)) return true;
+        Console.WriteLine($"[UnityEditorController] {project.name}({project.path}) is still running!");
+        return false;
+    }
+
+    public static bool TryGetUnityEditor(string version, out string unityEditor)
+    {
+        if (!EditorInstallations.TryGetValue(version, out var editor))
         {
-            Console.WriteLine($"[UnityEditorController] {projectName}({project.path}) is still running!");
+            Console.WriteLine(
+                $"[UnityEditorController] Unity Editor installation {version} not exist! You must define it in appsettings.json!");
+            unityEditor = string.Empty;
             return false;
         }
 
-        if (!EditorInstallations.TryGetValue(project.unityVersion, out var editor))
-        {
-            Console.WriteLine(
-                $"[UnityEditorController] Unity Editor installation {project.unityVersion} not exist! You must define it in appsettings.json!");
-            return false;
-        }
+        unityEditor = editor;
+        return true;
+    }
+    
+    public static async Task<bool> BuildWindowsPlayer64(string projectName)
+    {
+        TryGetProject(projectName, out var project);
+
+        CheckProjectIsRunning(project);
+
+        TryGetUnityEditor(project.unityVersion, out var editor);
 
         Process process = new Process();
         var sb = new StringBuilder();

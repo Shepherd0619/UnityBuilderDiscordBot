@@ -8,7 +8,8 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class DiscordStartupService : IHostedService
 {
-    private readonly DiscordSocketClient _discord;
+    public static DiscordSocketClient Discord => _discord;
+    private static DiscordSocketClient _discord;
     private readonly ILogger<DiscordSocketClient> _logger;
 
     public DiscordStartupService(DiscordSocketClient discord, ILogger<DiscordSocketClient> logger)
