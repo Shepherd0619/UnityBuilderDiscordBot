@@ -6,6 +6,7 @@ using Discord.Net.WebSockets;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
 
@@ -39,7 +40,12 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to load appsettings.json! \n{ex}");
-            return 1;
+            return -1;
+        }
+
+        if (!UnityEditorController.Initialize())
+        {
+            return -1;
         }
 
         var hostBuilder = new HostBuilder()
