@@ -89,7 +89,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
         }
 
-        var task = Task.Run(async () => await UnityEditorController.BuildWindowsPlayer64(projectName));
+        var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, TargetPlatform.Windows64));
         task.ContinueWith(async t =>
         {
             if (t.Result)

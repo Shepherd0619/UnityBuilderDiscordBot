@@ -96,7 +96,7 @@ public static class UnityEditorController
         return true;
     }
     
-    public static async Task<bool> BuildWindowsPlayer64(string projectName)
+    public static async Task<bool> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
         TryGetProject(projectName, out var project);
 
@@ -109,7 +109,51 @@ public static class UnityEditorController
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
         sb.Append($"-projectPath \"{project.path}\" ");
-        sb.Append($"-buildWindows64Player \"{Path.Combine(project.path, $"Build/WindowsPlayer64/{timestamp}/{project.name}.exe")}\"");
+        switch (targetPlatform)
+        {
+            case TargetPlatform.Windows:
+                sb.Append("-buildWindowsPlayer ");
+                break;
+            
+            case TargetPlatform.Windows64:
+                sb.Append("-buildWindows64Player ");
+                break;
+            
+            case TargetPlatform.Linux:
+                sb.Append("-buildLinux64Player ");
+                break;
+            
+            case TargetPlatform.Mac:
+                sb.Append("-buildOSXUniversalPlayer ");
+                break;
+            
+            default:
+                Console.WriteLine($"[UnityEditorController] Unsupported targetPlatform {targetPlatform.ToString()}");
+                break;
+        }
+
+        string fileExtension = string.Empty;
+        switch (targetPlatform)
+        {
+            case TargetPlatform.Mac:
+                fileExtension = ".app";
+                break;
+            
+            case TargetPlatform.Windows:
+                fileExtension = ".exe";
+                break;
+            
+            case TargetPlatform.Windows64:
+                fileExtension = ".exe";
+                break;
+            
+            case TargetPlatform.WindowsServer:
+                fileExtension = ".exe";
+                break;
+        }
+        
+        sb.Append($"\"{Path.Combine(project.path, $"Build/{targetPlatform.ToString()}/{timestamp}/{project.name}{fileExtension}")}\"");
+        
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
         process.StartInfo.UseShellExecute = false;
@@ -136,6 +180,7 @@ public static class UnityEditorController
         }
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
+        
         var buildStartLog =
             $"[UnityEditorController] Start building WindowsPlayer64 for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
