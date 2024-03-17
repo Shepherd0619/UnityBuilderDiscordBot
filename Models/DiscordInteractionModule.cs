@@ -71,7 +71,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(message);
     }
 
-    [SlashCommand("build_windows64", "Build a game executable for Windows 64-bit.")]
+    [SlashCommand("build-windows64", "Build a game executable for Windows 64-bit.")]
     public Task BuildWindowsPlayer64(string projectName)
     {
         if (!UnityEditorController.TryGetProject(projectName, out var project))
