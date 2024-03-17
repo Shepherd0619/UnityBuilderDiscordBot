@@ -126,6 +126,7 @@ public static class UnityEditorController
                 var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
                 output.Append($"\n{log}");
                 Console.WriteLine(log);
+                DiscordInteractionModule.LogNotification(log);
             }
         };
         if (!process.Start())
