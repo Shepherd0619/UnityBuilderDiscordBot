@@ -7,14 +7,15 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using UnityBuilderDiscordBot.Services;
+using UnityBuilderDiscordBot.Utilities;
 
 namespace UnityBuilderDiscordBot;
 
 class Program
 {
-    public static Task Main(string[] args) => new Program().MainAsync();
+    public static Task<int> Main(string[] args) => new Program().MainAsync();
 
-    public async Task MainAsync()
+    public async Task<int> MainAsync()
     {
         string title = "Unity Builder Discord Bot";
 
@@ -30,6 +31,16 @@ class Program
 
         // 输出底部边框
         Console.WriteLine(new string('*', boxLength));
+
+        try
+        {
+            ConfigurationUtility.Initialize();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load appsettings.json! \n{ex}");
+            return 1;
+        }
 
         var hostBuilder = new HostBuilder()
             .ConfigureServices((hostContext, services) =>
@@ -50,6 +61,8 @@ class Program
             });
 
         await hostBuilder.RunConsoleAsync();
+
+        return 0;
     }
 
     // Example of a logging handler. This can be re-used by addons
