@@ -2,6 +2,7 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using UnityBuilderDiscordBot.Utilities;
 
 namespace UnityBuilderDiscordBot.Services;
 
@@ -20,7 +21,7 @@ public class DiscordStartupService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await _discord.LoginAsync(TokenType.Bot, await File.ReadAllTextAsync("DiscordToken.txt", cancellationToken));
+        await _discord.LoginAsync(TokenType.Bot, ConfigurationUtility.Configuration["Discord"]["token"].ToString());
         await _discord.StartAsync();
     }
 
