@@ -11,14 +11,14 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 {
     private SshClient? client;
     
-    public async Task<ResultMsg> Login()
+    public Task<ResultMsg> Login()
     {
         var result = new ResultMsg();
         if (CredentialInfo == null)
         {
             result.Success = false;
             result.Message = "CredentialInfo is null.";
-            return result;
+            return Task.FromResult(result);
         }
 
         if (client != null)
@@ -76,7 +76,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
             result.Message = $"SshClient error! {ex}";
         }
         
-        return result;
+        return Task.FromResult(result);
     }
 
     public Task<ResultMsg> Logout()
