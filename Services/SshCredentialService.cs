@@ -9,27 +9,30 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedService
 {
-    private SshClient? client;
+    private SshClient? _client;
+    private readonly CancellationTokenSource _loginCancellationTokenSource = new CancellationTokenSource();
     
-    public Task<ResultMsg> Login()
+    public async Task<ResultMsg> Login()
     {
         var result = new ResultMsg();
         if (CredentialInfo == null)
         {
             result.Success = false;
             result.Message = "CredentialInfo is null.";
-            return Task.FromResult(result);
+            return result;
         }
 
-        if (client != null)
+        if (_client != null)
         {
-            client.Dispose();
+            _client.Dispose();
         }
 
-        client = new SshClient(CredentialInfo);
+        _client = new SshClient(CredentialInfo);
+        
+        var tcs = new TaskCompletionSource<ResultMsg>(); // 创建一个用于等待结果的TaskCompletionSource
         
         // SSH事件注册
-        client.HostKeyReceived += (sender, args) =>
+        _client.HostKeyReceived += (sender, args) =>
         {
             _logger.LogWarning(
                 $"[{DateTime.Now}][{GetType()}.Login] Host Key received! \nHost fingerprint SHA256: {args.FingerPrintSHA256}");
@@ -38,16 +41,17 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
                 _logger.LogError(
                     $"[{DateTime.Now}][{GetType()}.Login] expectedFingerprints not defined! Abort the login");
                 args.CanTrust = false;
-                client.Disconnect();
+                _client.Disconnect();
                 result.Success = false;
                 result.Message = "Untrusted host";
+                tcs.SetResult(result); // 设置TaskCompletionSource的结果
             }
             else
             {
                 args.CanTrust = _expectedFingerprints.Contains(args.FingerPrintSHA256);
             }
         };
-        client.ErrorOccurred += (sender, args) =>
+        _client.ErrorOccurred += (sender, args) =>
         {
             _logger.LogError($"[{DateTime.Now}][{GetType()}] SshClient ErrorOccurred! {args.Exception}");
         };
@@ -55,33 +59,51 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         // 保持SSH会话
         try
         {
-            client.KeepAliveInterval = TimeSpan.Parse(ConfigurationUtility.Configuration["Ssh"]["keepAlive"].Value);
+            _client.KeepAliveInterval = TimeSpan.Parse(ConfigurationUtility.Configuration["Ssh"]["keepAlive"].Value);
         }
         catch (Exception ex)
         {
-            client.KeepAliveInterval = new TimeSpan(0,0,-1);
+            _client.KeepAliveInterval = new TimeSpan(0,0,-1);
         }
         
         // 连接
         try
         {
-            client.Connect();
+            await _client.ConnectAsync(_loginCancellationTokenSource.Token);
             result.Success = true;
             result.Message = string.Empty;
+            tcs.SetResult(result);
         }
         catch (Exception ex)
         {
             _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] Error when SshClient connect!\n{ex}");
             result.Success = false;
             result.Message = $"SshClient error! {ex}";
+            tcs.SetResult(result);
         }
         
-        return Task.FromResult(result);
+        return await tcs.Task;
     }
 
     public Task<ResultMsg> Logout()
     {
-        throw new NotImplementedException();
+        var result = new ResultMsg();
+        if (_client == null)
+        {
+            result.Success = false;
+            result.Message = "SshClient is null.";
+
+            return Task.FromResult(result);
+        }
+        
+        _loginCancellationTokenSource.Cancel();
+        _client.Disconnect();
+        _client.Dispose();
+
+        result.Success = true;
+        result.Message = string.Empty;
+
+        return Task.FromResult(result);
     }
 
     public ConnectionInfo? CredentialInfo { get; set; }
