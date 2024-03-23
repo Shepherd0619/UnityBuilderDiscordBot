@@ -97,13 +97,29 @@ public static class UnityEditorController
         return true;
     }
     
-    public static async Task<bool> BuildPlayer(string projectName, TargetPlatform targetPlatform)
+    public static async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
-        TryGetProject(projectName, out var project);
+        var result = new ResultMsg();
+        if (!TryGetProject(projectName, out var project))
+        {
+            result.Success = false;
+            result.Message = "Project invalid";
+            return result;
+        }
 
-        CheckProjectIsRunning(project);
+        if (!CheckProjectIsRunning(project))
+        {
+            result.Success = false;
+            result.Message = "Project is running";
+            return result;
+        }
 
-        TryGetUnityEditor(project.unityVersion, out var editor);
+        if (!TryGetUnityEditor(project.unityVersion, out var editor))
+        {
+            result.Success = false;
+            result.Message = $"Unity Editor Installation ({project.unityVersion}) invalid";
+            return result;
+        }
 
         Process process = new Process();
         var sb = new StringBuilder();
@@ -177,7 +193,9 @@ public static class UnityEditorController
         if (!process.Start())
         {
             Console.WriteLine($"[UnityEditorController] Failed to start process for {projectName}.");
-            return false;
+            result.Success = false;
+            result.Message = $"Failed to start process for {projectName}";
+            return result;
         }
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
@@ -205,6 +223,15 @@ public static class UnityEditorController
         await File.WriteAllTextAsync(logPath, output.ToString());
         Console.WriteLine(
             $"[UnityEditorController] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+
+        result.Success = true;
+        
+        return result;
+    }
+
+    public static async Task<bool> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
+    {
+        
         
         return true;
     }

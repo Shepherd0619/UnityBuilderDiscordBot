@@ -92,14 +92,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, TargetPlatform.Windows64));
         task.ContinueWith(async t =>
         {
-            if (t.Result)
+            if (t.Result.Success)
             {
                 await Notification($"**{project}** WindowsPlayer64 build completed!");
             }
             else
             {
                 await Notification(
-                    $"**{project}** WindowsPlayer64 build failed! Please contact admin for error log.");
+                    $"**{project}** WindowsPlayer64 build failed! \n\n{t.Result.Message}");
             }
         });
         return RespondAsync($"**{project}** WindowsPlayer64 build started!", ephemeral: true);
