@@ -13,7 +13,7 @@ public interface IFileTransferService<T>
 
     public void Disconnect();
 
-    public void Upload(string path);
+    public Task<bool> Upload(string path);
 
-    public void Download(string path);
+    public Task<bool> Download(string path);
 }
