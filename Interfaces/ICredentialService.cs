@@ -1,10 +1,12 @@
-﻿namespace UnityBuilderDiscordBot.Interfaces;
+﻿using UnityBuilderDiscordBot.Models;
+
+namespace UnityBuilderDiscordBot.Interfaces;
 
 public interface ICredentialService<T>
 {
-    public void Login();
+    public Task<ResultMsg> Login();
 
-    public void Logout();
+    public Task<ResultMsg> Logout();
 
-    public T CredentialInfo { get; set; }
+    public T? CredentialInfo { get; set; }
 }

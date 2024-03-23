@@ -1,4 +1,6 @@
-﻿namespace UnityBuilderDiscordBot.Interfaces;
+﻿using UnityBuilderDiscordBot.Models;
+
+namespace UnityBuilderDiscordBot.Interfaces;
 
 public interface IFileTransferService<T>
 {
@@ -7,13 +9,13 @@ public interface IFileTransferService<T>
         public string Address;
         public ICredentialService<T> CredentialService;
     }
-    public ConnectionInfoStruct ConnectionInfo { get; set; }
+    public ConnectionInfoStruct? ConnectionInfo { get; set; }
 
     public void Connect();
 
     public void Disconnect();
 
-    public Task<bool> Upload(string path);
+    public Task<ResultMsg> Upload(string path);
 
-    public Task<bool> Download(string path);
+    public Task<ResultMsg> Download(string path);
 }
