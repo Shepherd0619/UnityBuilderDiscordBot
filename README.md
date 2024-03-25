@@ -47,7 +47,15 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
       "path": "D:\\Unity_Projects\\example",
       "unityVersion": "2022.3.14f1"
     }
-  ]
+  ],
+  "Ssh": {
+    "address": "",
+    "user": "",
+    "password": "",
+    "privateKeyPath": "",
+    "keepAliveInterval": "-1",
+    "expectedFingerprints": []
+  }
 }
 ```
 
