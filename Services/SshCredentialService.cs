@@ -19,6 +19,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         {
             result.Success = false;
             result.Message = "CredentialInfo is null.";
+            _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] ERROR! {result.Message}");
             return result;
         }
 
@@ -44,7 +45,6 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
                 _client.Disconnect();
                 result.Success = false;
                 result.Message = "Untrusted host";
-                tcs.SetResult(result); // 设置TaskCompletionSource的结果
             }
             else
             {
@@ -63,7 +63,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         }
         catch (Exception ex)
         {
-            _client.KeepAliveInterval = new TimeSpan(0,0,-1);
+            _client.KeepAliveInterval = new TimeSpan(-1);
         }
         
         // 连接
@@ -81,8 +81,16 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
             result.Message = $"SshClient error! {ex}";
             tcs.SetResult(result);
         }
-        
-        return await tcs.Task;
+
+        var success = await tcs.Task;
+        if(success.Success)
+            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.Login] Login success");
+        else
+        {
+            _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] login failed! {result.Message}");
+        }
+
+        return success;
     }
 
     public Task<ResultMsg> Logout()
@@ -115,18 +123,23 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     public SshCredentialService(ILogger<SshCredentialService> logger)
     {
         _logger = logger;
-        _expectedFingerprints = new List<string>(ConfigurationUtility.Configuration["Ssh"].Count);
-        for (int i = 0; i < ConfigurationUtility.Configuration["Ssh"].Count; i++)
+        var node = ConfigurationUtility.Configuration["Ssh"];
+        _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
+        for (int i = 0; i < node["expectedFingerprints"].Count; i++)
         {
-            _expectedFingerprints.Add(ConfigurationUtility.Configuration["Ssh"][i]);
+            _expectedFingerprints.Add(node["expectedFingerprints"][i]);
             _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {ConfigurationUtility.Configuration["Ssh"][i]} added!");
+                $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
         }
+
+        CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
+            new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
+            new PrivateKeyAuthenticationMethod(node["privateKeyPath"]));
     }
     
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        await Login();
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
