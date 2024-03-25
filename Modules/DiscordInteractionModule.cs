@@ -72,7 +72,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     [SlashCommand("build-player", "Build a game executable.")]
-    public Task BuildWindowsPlayer64(string projectName, string targetPlatform)
+    public Task BuildPlayer(string projectName, string targetPlatform)
     {
         if (!UnityEditorController.TryGetProject(projectName, out var project))
         {
