@@ -6,6 +6,7 @@ using Discord.Net.WebSockets;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -51,6 +52,7 @@ class Program
         var hostBuilder = new HostBuilder()
             .ConfigureServices((hostContext, services) =>
             {
+                services.AddLogging(builder => builder.AddConsole());
                 services.AddSingleton(serviceProvider =>
                 {
                     var config = new DiscordSocketConfig()
