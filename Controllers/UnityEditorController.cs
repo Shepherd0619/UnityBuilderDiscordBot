@@ -48,6 +48,14 @@ public static class UnityEditorController
                     case "unityVersion":
                         model.unityVersion = kvp.Value;
                         break;
+                    
+                    case "playerBuildOutput":
+                        model.playerBuildOutput = kvp.Value;
+                        break;
+                    
+                    case "addressableBuildOutput":
+                        model.addressableBuildOutput = kvp.Value;
+                        break;
                 }
             }
             UnityProjects.Add(model);
@@ -169,7 +177,7 @@ public static class UnityEditorController
                 break;
         }
         
-        sb.Append($"\"{Path.Combine(project.path, $"Build/{targetPlatform.ToString()}/{timestamp}/{project.name}{fileExtension}")}\"");
+        sb.Append($"\"{Path.Combine(project.playerBuildOutput, $"{targetPlatform.ToString()}/{timestamp}/{project.name}{fileExtension}")}\"");
         
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
@@ -229,10 +237,36 @@ public static class UnityEditorController
         return result;
     }
 
-    public static async Task<bool> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
+    public static async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
+        var result = new ResultMsg();
+        if (!TryGetProject(projectName, out var project))
+        {
+            result.Success = false;
+            result.Message = "Project invalid";
+            return result;
+        }
+
+        if (!CheckProjectIsRunning(project))
+        {
+            result.Success = false;
+            result.Message = "Project is running";
+            return result;
+        }
+
+        if (!TryGetUnityEditor(project.unityVersion, out var editor))
+        {
+            result.Success = false;
+            result.Message = $"Unity Editor Installation ({project.unityVersion}) invalid";
+            return result;
+        }
         
+        Process process = new Process();
+        var sb = new StringBuilder();
+        var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
+        sb.Append(NecessaryCommandLineArgs);
+        sb.Append($"-projectPath \"{project.path}\" ");
         
-        return true;
+        return result;
     }
 }
