@@ -14,7 +14,7 @@ public static class UnityEditorController
 
     public static Dictionary<string, string> EditorInstallations;
     public static List<UnityProjectModel> UnityProjects;
-    public static Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
+    public static readonly Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
     public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
     
     public static bool Initialize()
@@ -209,7 +209,7 @@ public static class UnityEditorController
         RunningProcesses.Add(project, process);
         
         var buildStartLog =
-            $"[UnityEditorController] Start building WindowsPlayer64 for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[UnityEditorController] Start building {targetPlatform.ToString()} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         Console.WriteLine(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
@@ -236,7 +236,14 @@ public static class UnityEditorController
         
         return result;
     }
-
+    
+    /// <summary>
+    /// 打热更包。具体热更打包逻辑得在Unity侧实现。
+    /// https://github.com/Shepherd0619/JenkinsBuildUnity.git
+    /// </summary>
+    /// <param name="projectName"></param>
+    /// <param name="targetPlatform"></param>
+    /// <returns></returns>
     public static async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
         var result = new ResultMsg();
@@ -266,6 +273,83 @@ public static class UnityEditorController
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
         sb.Append($"-projectPath \"{project.path}\" ");
+        switch (targetPlatform)
+        {
+            case TargetPlatform.Windows64:
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForWindows64");
+                break;
+            
+            case TargetPlatform.iOS:
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForiOS");
+                break;
+            
+            case TargetPlatform.Android:
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForAndroid");
+                break;
+            
+            case TargetPlatform.Linux:
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
+                break;
+            
+            default:
+                Console.WriteLine($"[UnityEditorController] Unsupported targetPlatform {targetPlatform.ToString()}");
+                break;
+        }
+        
+        process.StartInfo.FileName = editor;
+        process.StartInfo.Arguments = sb.ToString();
+        process.StartInfo.UseShellExecute = false;
+        process.StartInfo.RedirectStandardOutput = true;
+        process.StartInfo.RedirectStandardError = true;
+        var output = new StringBuilder();
+        int lineCount = 0;
+        process.OutputDataReceived += (sender, args) =>
+        {
+            // Prepend line numbers to each line of the output.
+            if (!String.IsNullOrEmpty(args.Data))
+            {
+                lineCount++;
+                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                output.Append($"\n{log}");
+                Console.WriteLine(log);
+                DiscordInteractionModule.LogNotification(log);
+            }
+        };
+        if (!process.Start())
+        {
+            Console.WriteLine($"[UnityEditorController] Failed to start process for {projectName}.");
+            result.Success = false;
+            result.Message = $"Failed to start process for {projectName}";
+            return result;
+        }
+        process.BeginOutputReadLine();
+        RunningProcesses.Add(project, process);
+        
+        var buildStartLog =
+            $"[UnityEditorController] Start building {targetPlatform.ToString()} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
+        output.Append(buildStartLog);
+        Console.WriteLine(buildStartLog);
+        await DiscordInteractionModule.Notification(buildStartLog);
+        
+        await process.WaitForExitAsync();
+        RunningProcesses.Remove(project);
+        
+        var buildExitLog =
+            $"\n[UnityEditorController] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
+        output.Append(buildExitLog);
+        Console.WriteLine(buildExitLog);
+        await DiscordInteractionModule.Notification(buildExitLog);
+        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        if (!Directory.Exists(logFolder))
+        {
+            Directory.CreateDirectory(logFolder);
+        }
+        await File.WriteAllTextAsync(logPath, output.ToString());
+        Console.WriteLine(
+            $"[UnityEditorController] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+
+        result.Success = true;
         
         return result;
     }
