@@ -71,8 +71,8 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(message);
     }
 
-    [SlashCommand("build-windows64", "Build a game executable for Windows 64-bit.")]
-    public Task BuildWindowsPlayer64(string projectName)
+    [SlashCommand("build-player", "Build a game executable.")]
+    public Task BuildWindowsPlayer64(string projectName, string targetPlatform)
     {
         if (!UnityEditorController.TryGetProject(projectName, out var project))
         {
@@ -89,7 +89,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
         }
 
-        var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, TargetPlatform.Windows64));
+        var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
+
+        if (!parseResult)
+        {
+            return RespondAsync($"Unknown targetPlatform!");
+        }
+
+        var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, target));
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
