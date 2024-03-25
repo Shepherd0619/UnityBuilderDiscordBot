@@ -116,7 +116,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
     public ConnectionInfo? CredentialInfo { get; set; }
 
-    private List<string>? _expectedFingerprints;
+    private readonly List<string>? _expectedFingerprints;
 
     private readonly ILogger<SshCredentialService> _logger;
 
