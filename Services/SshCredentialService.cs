@@ -84,7 +84,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
         var success = await tcs.Task;
         if(success.Success)
-            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.Login] Login success");
+            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.Login] Login success!");
         else
         {
             _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] login failed! {result.Message}");
@@ -134,7 +134,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
-            new PrivateKeyAuthenticationMethod(node["privateKeyPath"]));
+            new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
     }
     
     public async Task StartAsync(CancellationToken cancellationToken)
