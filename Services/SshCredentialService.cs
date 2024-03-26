@@ -140,10 +140,12 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         await Login();
+        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await Logout();
+        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
     }
 }
