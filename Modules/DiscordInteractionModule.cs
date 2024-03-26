@@ -100,14 +100,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         {
             if (t.Result.Success)
             {
-                await Notification($"**{project}** WindowsPlayer64 build completed!");
+                await Notification($"**{project}** {targetPlatform.ToString()} build completed!");
             }
             else
             {
                 await Notification(
-                    $"**{project}** WindowsPlayer64 build failed! \n\n{t.Result.Message}");
+                    $"**{project}** {targetPlatform.ToString()} build failed! \n\n{t.Result.Message}");
             }
         });
-        return RespondAsync($"**{project}** WindowsPlayer64 build started!", ephemeral: true);
+        return RespondAsync($"**{project}** {targetPlatform.ToString()} build started!");
     }
 }
