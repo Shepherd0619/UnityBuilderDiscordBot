@@ -10,6 +10,7 @@ public class UnityProjectModel
     
     public override string ToString()
     {
-        return $"[{GetType()}] name: {name}, path: {path}, unityVersion: {unityVersion}";
+        return
+            $"[{GetType()}] name: {name}, path: {path}, unityVersion: {unityVersion}, playerBuildOutput: {playerBuildOutput}, addressableBuildOutput: {addressableBuildOutput}";
     }
 }
