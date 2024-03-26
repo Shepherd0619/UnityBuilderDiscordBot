@@ -1,7 +1,7 @@
 ﻿# UnityBuilderDiscordBot
 This is a Discord DevOps bot helps everyone (no matter whether he or she is programmer or not) build the Unity game executables and hot updates.
 
-Developed by Shepherd Zhu (@Shepherd0619). **Under BSD-Clause-3 license.**
+Developed by Shepherd Zhu (@Shepherd0619). **Under BSD 3-Clause License.**
 
 To contribute, please submit a pull request.
 
