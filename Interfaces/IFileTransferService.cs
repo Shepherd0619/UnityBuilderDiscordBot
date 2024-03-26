@@ -11,11 +11,11 @@ public interface IFileTransferService<T>
     }
     public ConnectionInfoStruct? ConnectionInfo { get; set; }
 
-    public void Connect();
+    public Task<ResultMsg> UploadFile(string path, string remotePath);
 
-    public void Disconnect();
+    public Task<ResultMsg> DownloadFile(string remotePath, string path);
 
-    public Task<ResultMsg> Upload(string path);
-
-    public Task<ResultMsg> Download(string path);
+    public void CancelAllDownload();
+    
+    public void CancelAllUpload();
 }
