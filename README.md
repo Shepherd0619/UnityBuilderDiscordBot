@@ -45,7 +45,9 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
     {
       "name": "example",
       "path": "D:\\Unity_Projects\\example",
-      "unityVersion": "2022.3.14f1"
+      "unityVersion": "2022.3.14f1",
+      "playerBuildOutput": "D:\\Unity_Projects\\example\\Build",
+      "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData"
     }
   ],
   "Ssh": {
