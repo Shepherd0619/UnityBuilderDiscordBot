@@ -110,4 +110,45 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         });
         return RespondAsync($"**{project}** {targetPlatform.ToString()} build started!");
     }
+    
+    [SlashCommand("build-hot-update", "Build a hot update.")]
+    public Task BuildHotUpdate(string projectName, string targetPlatform)
+    {
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
+        {
+            return RespondAsync($"Project **{projectName}** not found!");
+        }
+
+        if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
+        {
+            return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
+        }
+
+        if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
+        {
+            return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
+        }
+
+        var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
+
+        if (!parseResult)
+        {
+            return RespondAsync($"Unknown targetPlatform!");
+        }
+
+        var task = Task.Run(async () => await UnityEditorService.Instance.BuildHotUpdate(projectName, target));
+        task.ContinueWith(async t =>
+        {
+            if (t.Result.Success)
+            {
+                await Notification($"**{project}** {targetPlatform.ToString()} hot update build completed!");
+            }
+            else
+            {
+                await Notification(
+                    $"**{project}** {targetPlatform.ToString()} hot update build failed! \n\n{t.Result.Message}");
+            }
+        });
+        return RespondAsync($"**{project}** {targetPlatform.ToString()} hot update build started!");
+    }
 }
