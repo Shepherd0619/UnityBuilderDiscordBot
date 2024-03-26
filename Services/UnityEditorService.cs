@@ -387,6 +387,7 @@ public class UnityEditorService : IHostedService
         {
             kvp.Value.Kill(true);
         }
+        RunningProcesses.Clear();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
         return Task.CompletedTask;
     }
