@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Discord;
 using Discord.Interactions;
-using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -71,37 +70,85 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(message);
     }
 
-    [SlashCommand("build-windows64", "Build a game executable for Windows 64-bit.")]
-    public Task BuildWindowsPlayer64(string projectName)
+    [SlashCommand("build-player", "Build a game executable.")]
+    public Task BuildPlayer(string projectName, string targetPlatform)
     {
-        if (!UnityEditorController.TryGetProject(projectName, out var project))
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
         {
             return RespondAsync($"Project **{projectName}** not found!");
         }
 
-        if (!UnityEditorController.TryGetUnityEditor(project.unityVersion, out var editor))
+        if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
         {
             return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
         }
 
-        if (!UnityEditorController.CheckProjectIsRunning(project))
+        if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
         {
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
         }
 
-        var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, TargetPlatform.Windows64));
+        var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
+
+        if (!parseResult)
+        {
+            return RespondAsync($"Unknown targetPlatform!");
+        }
+
+        var task = Task.Run(async () => await UnityEditorService.Instance.BuildPlayer(projectName, target));
         task.ContinueWith(async t =>
         {
-            if (t.Result)
+            if (t.Result.Success)
             {
-                await Notification($"**{project}** WindowsPlayer64 build completed!");
+                await Notification($"**{project}** {targetPlatform.ToString()} build completed!");
             }
             else
             {
                 await Notification(
-                    $"**{project}** WindowsPlayer64 build failed! Please contact admin for error log.");
+                    $"**{project}** {targetPlatform.ToString()} build failed! \n\n{t.Result.Message}");
             }
         });
-        return RespondAsync($"**{project}** WindowsPlayer64 build started!", ephemeral: true);
+        return RespondAsync($"**{project}** {targetPlatform.ToString()} build started!");
+    }
+    
+    [SlashCommand("build-hot-update", "Build a hot update.")]
+    public Task BuildHotUpdate(string projectName, string targetPlatform)
+    {
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
+        {
+            return RespondAsync($"Project **{projectName}** not found!");
+        }
+
+        if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
+        {
+            return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
+        }
+
+        if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
+        {
+            return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
+        }
+
+        var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
+
+        if (!parseResult)
+        {
+            return RespondAsync($"Unknown targetPlatform!");
+        }
+
+        var task = Task.Run(async () => await UnityEditorService.Instance.BuildHotUpdate(projectName, target));
+        task.ContinueWith(async t =>
+        {
+            if (t.Result.Success)
+            {
+                await Notification($"**{project}** {targetPlatform.ToString()} hot update build completed!");
+            }
+            else
+            {
+                await Notification(
+                    $"**{project}** {targetPlatform.ToString()} hot update build failed! \n\n{t.Result.Message}");
+            }
+        });
+        return RespondAsync($"**{project}** {targetPlatform.ToString()} hot update build started!");
     }
 }
