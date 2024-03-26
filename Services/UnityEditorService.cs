@@ -1,23 +1,36 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using SimpleJSON;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Modules;
 using UnityBuilderDiscordBot.Utilities;
 
-namespace UnityBuilderDiscordBot.Controllers;
+namespace UnityBuilderDiscordBot.Services;
 
-public static class UnityEditorController
+public class UnityEditorService : IHostedService
 {
     // 打包参数
     // -nographics -batchmode -quit -buildWindowsPlayer "${WORKSPACE}\Build\Windows\${BUILD_NUMBER}\output\your_game.exe"
 
-    public static Dictionary<string, string> EditorInstallations;
-    public static List<UnityProjectModel> UnityProjects;
-    public static readonly Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
+    public Dictionary<string, string> EditorInstallations;
+    public List<UnityProjectModel> UnityProjects;
+    public readonly Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
     public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
+
+    public readonly ILogger<UnityEditorService> _logger;
     
-    public static bool Initialize()
+    private static UnityEditorService _instance;
+    public static UnityEditorService Instance => _instance;
+
+    public UnityEditorService(ILogger<UnityEditorService> logger)
+    {
+        _logger = logger;
+        _instance = this;
+    }
+    
+    public bool Initialize()
     {
         EditorInstallations = new Dictionary<string, string>();
         foreach (JSONNode node in ConfigurationUtility.Configuration["Unity"].AsArray)
@@ -25,7 +38,7 @@ public static class UnityEditorController
             foreach (var kvp in node)
             {
                 EditorInstallations.Add(kvp.Key, kvp.Value.Value);
-                Console.WriteLine($"[UnityEditorController] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
+                _logger.LogInformation($"[{GetType()}] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
             }
         }
 
@@ -59,44 +72,44 @@ public static class UnityEditorController
                 }
             }
             UnityProjects.Add(model);
-            Console.WriteLine($"[UnityEditorController] {model}");
+            _logger.LogInformation($"[{GetType()}] {model}");
         }
 
         if (UnityProjects.Count <= 0)
         {
-            Console.WriteLine($"[UnityEditorController] There is no project defined in appsettings.json!");
+            _logger.LogCritical($"[{GetType()}] There is no project defined in appsettings.json!");
             return false;
         }
         
         return true;
     }
 
-    public static bool TryGetProject(string projectName, out UnityProjectModel project)
+    public bool TryGetProject(string projectName, out UnityProjectModel project)
     {
         project = UnityProjects.Find(search => search.name == projectName);
 
         if (project == null)
         {
-            Console.WriteLine($"[UnityEditorController] project {projectName} not exist!");
+            _logger.LogError($"[{GetType()}] project {projectName} not exist!");
             return false;
         }
 
         return true;
     }
 
-    public static bool CheckProjectIsRunning(UnityProjectModel project)
+    public bool CheckProjectIsRunning(UnityProjectModel project)
     {
         if (!RunningProcesses.ContainsKey(project)) return true;
-        Console.WriteLine($"[UnityEditorController] {project.name}({project.path}) is still running!");
+        _logger.LogWarning($"[{GetType()}] {project.name}({project.path}) is still running!");
         return false;
     }
 
-    public static bool TryGetUnityEditor(string version, out string unityEditor)
+    public bool TryGetUnityEditor(string version, out string unityEditor)
     {
         if (!EditorInstallations.TryGetValue(version, out var editor))
         {
-            Console.WriteLine(
-                $"[UnityEditorController] Unity Editor installation {version} not exist! You must define it in appsettings.json!");
+            _logger.LogCritical(
+                $"[{GetType()}] Unity Editor installation {version} not exist! You must define it in appsettings.json!");
             unityEditor = string.Empty;
             return false;
         }
@@ -105,7 +118,7 @@ public static class UnityEditorController
         return true;
     }
     
-    public static async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
+    public async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
         var result = new ResultMsg();
         if (!TryGetProject(projectName, out var project))
@@ -153,7 +166,7 @@ public static class UnityEditorController
                 break;
             
             default:
-                Console.WriteLine($"[UnityEditorController] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
                 break;
         }
 
@@ -194,13 +207,13 @@ public static class UnityEditorController
                 lineCount++;
                 var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
                 output.Append($"\n{log}");
-                Console.WriteLine(log);
+                _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
             }
         };
         if (!process.Start())
         {
-            Console.WriteLine($"[UnityEditorController] Failed to start process for {projectName}.");
+            _logger.LogError($"[{GetType()}] Failed to start process for {projectName}.");
             result.Success = false;
             result.Message = $"Failed to start process for {projectName}";
             return result;
@@ -209,18 +222,18 @@ public static class UnityEditorController
         RunningProcesses.Add(project, process);
         
         var buildStartLog =
-            $"[UnityEditorController] Start building {targetPlatform.ToString()} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform.ToString()} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
-        Console.WriteLine(buildStartLog);
+        _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
         
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
         
         var buildExitLog =
-            $"\n[UnityEditorController] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
+            $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
-        Console.WriteLine(buildExitLog);
+        _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
         var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
@@ -229,8 +242,8 @@ public static class UnityEditorController
             Directory.CreateDirectory(logFolder);
         }
         await File.WriteAllTextAsync(logPath, output.ToString());
-        Console.WriteLine(
-            $"[UnityEditorController] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+        _logger.LogInformation(
+            $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
 
         result.Success = true;
         
@@ -244,7 +257,7 @@ public static class UnityEditorController
     /// <param name="projectName"></param>
     /// <param name="targetPlatform"></param>
     /// <returns></returns>
-    public static async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
+    public async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
         var result = new ResultMsg();
         if (!TryGetProject(projectName, out var project))
@@ -292,7 +305,7 @@ public static class UnityEditorController
                 break;
             
             default:
-                Console.WriteLine($"[UnityEditorController] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
                 break;
         }
         
@@ -311,13 +324,13 @@ public static class UnityEditorController
                 lineCount++;
                 var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
                 output.Append($"\n{log}");
-                Console.WriteLine(log);
+                _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
             }
         };
         if (!process.Start())
         {
-            Console.WriteLine($"[UnityEditorController] Failed to start process for {projectName}.");
+            _logger.LogError($"[{GetType()}] Failed to start process for {projectName}.");
             result.Success = false;
             result.Message = $"Failed to start process for {projectName}";
             return result;
@@ -326,18 +339,18 @@ public static class UnityEditorController
         RunningProcesses.Add(project, process);
         
         var buildStartLog =
-            $"[UnityEditorController] Start building {targetPlatform.ToString()} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform.ToString()} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
-        Console.WriteLine(buildStartLog);
+        _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
         
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
         
         var buildExitLog =
-            $"\n[UnityEditorController] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
+            $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
-        Console.WriteLine(buildExitLog);
+        _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
         var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
@@ -346,11 +359,35 @@ public static class UnityEditorController
             Directory.CreateDirectory(logFolder);
         }
         await File.WriteAllTextAsync(logPath, output.ToString());
-        Console.WriteLine(
-            $"[UnityEditorController] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+        _logger.LogInformation(
+            $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
 
         result.Success = true;
         
         return result;
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (!Initialize())
+        {
+            _logger.LogCritical($"[{DateTime.Now}][{GetType()}.StartAsync] Initialize failed!");
+            Environment.Exit(-1);
+        }
+        else
+        {
+            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        foreach (var kvp in RunningProcesses)
+        {
+            kvp.Value.Kill(true);
+        }
+        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
+        return Task.CompletedTask;
     }
 }

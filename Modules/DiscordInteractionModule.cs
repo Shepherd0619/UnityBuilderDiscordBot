@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Discord;
 using Discord.Interactions;
-using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -74,17 +73,17 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     [SlashCommand("build-player", "Build a game executable.")]
     public Task BuildPlayer(string projectName, string targetPlatform)
     {
-        if (!UnityEditorController.TryGetProject(projectName, out var project))
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
         {
             return RespondAsync($"Project **{projectName}** not found!");
         }
 
-        if (!UnityEditorController.TryGetUnityEditor(project.unityVersion, out var editor))
+        if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
         {
             return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
         }
 
-        if (!UnityEditorController.CheckProjectIsRunning(project))
+        if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
         {
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
         }
@@ -96,7 +95,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             return RespondAsync($"Unknown targetPlatform!");
         }
 
-        var task = Task.Run(async () => await UnityEditorController.BuildPlayer(projectName, target));
+        var task = Task.Run(async () => await UnityEditorService.Instance.BuildPlayer(projectName, target));
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)

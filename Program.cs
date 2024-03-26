@@ -7,7 +7,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using UnityBuilderDiscordBot.Controllers;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
 
@@ -44,11 +43,6 @@ class Program
             return -1;
         }
 
-        if (!UnityEditorController.Initialize())
-        {
-            return -1;
-        }
-
         var hostBuilder = new HostBuilder()
             .ConfigureServices((hostContext, services) =>
             {
@@ -64,6 +58,7 @@ class Program
                     return new DiscordSocketClient(config);
                 }); // Add the discord client to services
                 services.AddSingleton<InteractionService>(); // Add the interaction service to services
+                services.AddHostedService<UnityEditorService>(); // Add the Unity Editor service
                 services.AddHostedService<InteractionHandlingService>(); // Add the slash command handler
                 services.AddHostedService<DiscordStartupService>(); // Add the discord startup service
                 services.AddHostedService<SshCredentialService>();
