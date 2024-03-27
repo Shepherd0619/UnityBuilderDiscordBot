@@ -18,11 +18,15 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
     private readonly Dictionary<string, IAsyncResult> _downloadAsyncResults =
         new Dictionary<string, IAsyncResult>();
 
+    public static SftpFileTransferService Instance => _instance;
+    private static SftpFileTransferService _instance;
+
     public SftpFileTransferService(ILogger<SftpFileTransferService> logger, SshCredentialService ssh)
     {
         _logger = logger;
         _ssh = ssh;
         _client = new SftpClient(ssh.CredentialInfo);
+        _instance = this;
     }
     
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -34,6 +38,7 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
     public Task StopAsync(CancellationToken cancellationToken)
     {
         CancelAllUpload();
+        CancelAllDownload();
         _client.Disconnect();
         _client.Dispose();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
