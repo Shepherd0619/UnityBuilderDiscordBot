@@ -13,8 +13,4 @@
       <PackageReference Include="SSH.NET" Version="2024.0.0" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Controllers\" />
-    </ItemGroup>
-
 </Project>
