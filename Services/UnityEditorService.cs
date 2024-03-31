@@ -345,8 +345,11 @@ public class UnityEditorService : IHostedService
             var stringReplace = new StringReplacementUtility(project);
             var localPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
                 $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
-            var remotePath = Path.Combine(stringReplace.Replace(sftpConfig["remotePath"].Value),
-                $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
+            var remotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
+                    $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}")
+                // 根据Linux平台处理斜线、反斜线问题
+                .Replace(Path.DirectorySeparatorChar, '/');
+            
             _logger.LogInformation(
                 $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
             DiscordInteractionModule.Notification(
@@ -357,16 +360,21 @@ public class UnityEditorService : IHostedService
                 if (Directory.Exists(localPath))
                 {
                     // 如果是文件夹，给压缩成zip再上传。
-                    var zipPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
+                    var zipLocalPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
                         $"{Path.GetFileName(localPath)}.zip");
-                    if (File.Exists(zipPath))
+                    var zipRemotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
+                        $"{Path.GetFileName(localPath)}.zip")
+                        // 根据Linux平台处理斜线、反斜线问题
+                        .Replace(Path.DirectorySeparatorChar, '/');
+                    
+                    if (File.Exists(zipLocalPath))
                     {
-                        File.Delete(zipPath);    
+                        File.Delete(zipLocalPath);    
                     }
                     
                     try
                     {
-                        ZipFile.CreateFromDirectory(localPath, zipPath);
+                        ZipFile.CreateFromDirectory(localPath, zipLocalPath);
                     }
                     catch (Exception ex)
                     {
@@ -378,12 +386,17 @@ public class UnityEditorService : IHostedService
                         return result;
                     }
 
-                    var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipPath, remotePath);
+                    var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipLocalPath, zipRemotePath);
+                    
                     // 远程主机上解压
                     if (uploadResult.Success)
                     {
-                        var cdResult = await SshCredentialService.Instance.RunCommand($"cd {remotePath}");
-                        var unzipResult = await SshCredentialService.Instance.RunCommand($"unzip -o {Path.GetFileName(zipPath)}");
+                        var cdResult =
+                            await SshCredentialService.Instance.RunCommand(
+                                $"cd {stringReplace.Replace(sftpConfig["RemotePath"].Value)}");
+                        var unzipResult =
+                            await SshCredentialService.Instance.RunCommand(
+                                $"unzip -o {Path.GetFileName(zipLocalPath)}");
 
                         if (cdResult.Success && unzipResult.Success)
                         {
