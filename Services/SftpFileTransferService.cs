@@ -55,11 +55,11 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
         if (isFile)
         {
             _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path})");
-            if (!_uploadAsyncResults.ContainsKey(remotePath))
+                $"[{DateTime.Now}][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path}) to {remotePath}");
+            if (_uploadAsyncResults.ContainsKey(remotePath))
             {
                 _logger.LogWarning(
-                    $"[{DateTime.Now}][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading.!");
+                    $"[{DateTime.Now}][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading!");
                 result.Success = false;
                 result.Message = "Upload in progress";
                 return result;

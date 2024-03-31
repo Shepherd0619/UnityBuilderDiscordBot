@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -153,7 +154,7 @@ public class UnityEditorService : IHostedService
                 break;
 
             default:
-                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
 
@@ -178,7 +179,7 @@ public class UnityEditorService : IHostedService
         }
 
         sb.Append(
-            $"\"{Path.Combine(project.playerBuildOutput, $"{targetPlatform.ToString()}/{timestamp}/{project.name}{fileExtension}")}\"");
+            $"\"{Path.Combine(project.playerBuildOutput, $"{targetPlatform}/{timestamp}/{project.name}{fileExtension}")}\"");
 
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
@@ -211,7 +212,7 @@ public class UnityEditorService : IHostedService
         RunningProcesses.Add(project, process);
 
         var buildStartLog =
-            $"[{GetType()}] Start building {targetPlatform.ToString()} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
@@ -224,7 +225,7 @@ public class UnityEditorService : IHostedService
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
-        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logPath = $"logs/{projectName}_{targetPlatform}_PlayerBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder))
         {
@@ -278,7 +279,7 @@ public class UnityEditorService : IHostedService
                 break;
 
             default:
-                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
 
@@ -313,7 +314,7 @@ public class UnityEditorService : IHostedService
         RunningProcesses.Add(project, process);
 
         var buildStartLog =
-            $"[{GetType()}] Start building {targetPlatform.ToString()} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
@@ -326,7 +327,7 @@ public class UnityEditorService : IHostedService
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
-        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder))
         {
@@ -336,7 +337,91 @@ public class UnityEditorService : IHostedService
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+        
+        // SFTP上传
+        var sftpConfig = ConfigurationUtility.Configuration["Deployment"]["SftpUploadAction"];
+        if (sftpConfig != null)
+        {
+            var stringReplace = new StringReplacementUtility(project);
+            var localPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
+                $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
+            var remotePath = Path.Combine(stringReplace.Replace(sftpConfig["remotePath"].Value),
+                $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
+            _logger.LogInformation(
+                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
+            DiscordInteractionModule.Notification(
+                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
+            
+            if (!File.Exists(localPath))
+            {
+                if (Directory.Exists(localPath))
+                {
+                    // 如果是文件夹，给压缩成zip再上传。
+                    var zipPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
+                        $"{Path.GetFileName(localPath)}.zip");
+                    if (File.Exists(zipPath))
+                    {
+                        File.Delete(zipPath);    
+                    }
+                    
+                    try
+                    {
+                        ZipFile.CreateFromDirectory(localPath, zipPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            $"[{DateTime.Now}][{GetType()}] Failed when creating zip for {localPath}! Abort the upload for {projectName}.\n{ex}");
+                        result.Success = false;
+                        result.Message = $"Failed when creating zip for {localPath}\n{ex}";
 
+                        return result;
+                    }
+
+                    var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipPath, remotePath);
+                    // 远程主机上解压
+                    if (uploadResult.Success)
+                    {
+                        var cdResult = await SshCredentialService.Instance.RunCommand($"cd {remotePath}");
+                        var unzipResult = await SshCredentialService.Instance.RunCommand($"unzip -o {Path.GetFileName(zipPath)}");
+
+                        if (cdResult.Success && unzipResult.Success)
+                        {
+                            _logger.LogInformation($"[{DateTime.Now}][{GetType()}] Upload success!");
+                            result.Success = true;
+                            return result;
+                        }
+
+                        if (!cdResult.Success)
+                        {
+                            _logger.LogError(
+                                $"[{DateTime.Now}][{GetType()}] Failed on remote when changing directory! {cdResult.Message}");
+                        }
+                        else
+                        {
+                            _logger.LogError(
+                                $"[{DateTime.Now}][{GetType()}] Failed on remote when unzipping! {unzipResult.Message}");
+                        }
+
+                        result.Success = true;
+                        return result;
+                    }
+
+                    return uploadResult;
+                }
+
+                _logger.LogError(
+                    $"[{DateTime.Now}][{GetType()}] Can't confirm whether {localPath} is a file or directory! Abort the upload for {projectName}");
+
+                result.Success = false;
+                result.Message = $"Can't confirm whether {localPath} is a file or directory!";
+
+                return result;
+            }
+
+            return await SftpFileTransferService.Instance.UploadFile(localPath, remotePath);
+        }
+        
         result.Success = true;
 
         return result;

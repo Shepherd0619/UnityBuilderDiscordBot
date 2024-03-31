@@ -57,6 +57,12 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
     "privateKeyPath": "",
     "keepAliveInterval": "-1",
     "expectedFingerprints": []
+  },
+  "Deployment": {
+    "SftpUploadAction": {
+      "LocalPath": "",
+      "RemotePath": ""
+    }
   }
 }
 ```
