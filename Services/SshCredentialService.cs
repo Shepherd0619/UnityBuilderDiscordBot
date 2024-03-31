@@ -126,7 +126,6 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     public SshCredentialService(ILogger<SshCredentialService> logger)
     {
         _logger = logger;
-        _instance = this;
         
         var node = ConfigurationUtility.Configuration["Ssh"];
         _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
@@ -144,6 +143,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _instance = this;
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
