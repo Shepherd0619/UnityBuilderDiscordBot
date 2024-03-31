@@ -9,8 +9,8 @@ public class SftpFileUploadAction : IAction
     public string LocalPath { get; set; }
     public string RemotePath { get; set; }
     
-    public Task<ResultMsg> Invoke()
+    public async Task<ResultMsg> Invoke()
     {
-        return SftpFileTransferService.Instance.UploadFile(LocalPath, RemotePath);
+        return await SftpFileTransferService.Instance.UploadFile(LocalPath, RemotePath);
     }
 }
