@@ -402,6 +402,8 @@ public class UnityEditorService : IHostedService
 
         process = new Process();
 
+        result.Success = true;
+
         return result;
     }
 }
