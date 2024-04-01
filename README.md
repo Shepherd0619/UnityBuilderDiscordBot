@@ -11,7 +11,8 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
 
 ## Features
 1. Build Unity executables and hot updates via Slash Command.
-2. Upload hot updates via SFTP. **(Work in progress)**
+2. Upload hot updates via SFTP. 
+3. Customize build action via JSON. **(Work in progress)**
 
 ## How to use
 ### Set up Discord App
