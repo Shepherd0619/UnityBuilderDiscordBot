@@ -160,7 +160,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         var sshCommand = _client.CreateCommand(command);
         try
         {
-            await Task.FromResult(_client.CreateCommand(command).BeginExecute());
+            await Task.Factory.FromAsync(sshCommand.BeginExecute, sshCommand.EndExecute, null);
         }
         catch (Exception ex)
         {
