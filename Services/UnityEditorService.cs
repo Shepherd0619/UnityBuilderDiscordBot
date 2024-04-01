@@ -391,32 +391,22 @@ public class UnityEditorService : IHostedService
                     // 远程主机上解压
                     if (uploadResult.Success)
                     {
-                        var cdResult =
-                            await SshCredentialService.Instance.RunCommand(
-                                $"cd {stringReplace.Replace(sftpConfig["RemotePath"].Value)}");
                         var unzipResult =
                             await SshCredentialService.Instance.RunCommand(
-                                $"unzip -o {Path.GetFileName(zipLocalPath)}");
+                                $"unzip -o {zipRemotePath} -d {remotePath}");
 
-                        if (cdResult.Success && unzipResult.Success)
+                        if (unzipResult.Success)
                         {
                             _logger.LogInformation($"[{DateTime.Now}][{GetType()}] Upload success!");
                             result.Success = true;
                             return result;
                         }
 
-                        if (!cdResult.Success)
-                        {
-                            _logger.LogError(
-                                $"[{DateTime.Now}][{GetType()}] Failed on remote when changing directory! {cdResult.Message}");
-                        }
-                        else
-                        {
-                            _logger.LogError(
-                                $"[{DateTime.Now}][{GetType()}] Failed on remote when unzipping! {unzipResult.Message}");
-                        }
+                        _logger.LogError(
+                            $"[{DateTime.Now}][{GetType()}] Failed on remote when unzipping! {unzipResult.Message}");
 
-                        result.Success = true;
+                        result.Success = false;
+                        result.Message = unzipResult.Message;
                         return result;
                     }
 

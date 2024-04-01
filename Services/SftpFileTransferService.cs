@@ -82,9 +82,16 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
         var resultMsg = new ResultMsg();
         try
         {
+            var dir = Path.GetDirectoryName(path).Replace(Path.DirectorySeparatorChar, '/');
+            if (!_client.Exists(dir))
+            {
+                _client.CreateDirectory(dir);
+            }
+            
             var result = _client.BeginUploadFile(input, path, canOverride, null, null);
             _uploadAsyncResults.Add(path, result);
-            await Task.Factory.FromAsync(result, _ => _client.EndUploadFile(result));
+            result.AsyncWaitHandle.WaitOne();
+            _client.EndUploadFile(result);
             
             resultMsg.Success = true;
             resultMsg.Message = string.Empty;
