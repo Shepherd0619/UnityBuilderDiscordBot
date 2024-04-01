@@ -6,7 +6,7 @@ using Discord.Net.WebSockets;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using UnityBuilderDiscordBot.Controllers;
+using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
 
@@ -43,14 +43,10 @@ class Program
             return -1;
         }
 
-        if (!UnityEditorController.Initialize())
-        {
-            return -1;
-        }
-
         var hostBuilder = new HostBuilder()
             .ConfigureServices((hostContext, services) =>
             {
+                services.AddLogging(builder => builder.AddConsole());
                 services.AddSingleton(serviceProvider =>
                 {
                     var config = new DiscordSocketConfig()
@@ -62,8 +58,12 @@ class Program
                     return new DiscordSocketClient(config);
                 }); // Add the discord client to services
                 services.AddSingleton<InteractionService>(); // Add the interaction service to services
+                services.AddHostedService<UnityEditorService>(); // Add the Unity Editor service
                 services.AddHostedService<InteractionHandlingService>(); // Add the slash command handler
                 services.AddHostedService<DiscordStartupService>(); // Add the discord startup service
+                services.AddSingleton<SshCredentialService>(); 
+                services.AddHostedService<SshCredentialService>(); // Add the SSH 
+                services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
             });
 
         await hostBuilder.RunConsoleAsync();
