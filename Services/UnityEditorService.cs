@@ -236,6 +236,13 @@ public class UnityEditorService : IHostedService
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
 
+        if (process.ExitCode != 0)
+        {
+            result.Success = false;
+            result.Message = $"Unity Editor quited with exit code {process.ExitCode}";
+            return result;
+        }
+        
         result.Success = true;
 
         return result;
@@ -337,6 +344,17 @@ public class UnityEditorService : IHostedService
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
+
+        if (process.ExitCode != 0)
+        {
+            _logger.LogError(
+                $"[{DateTime.Now}][{GetType()}] Something wrong with the Unity Editor. HotUpdate may already fail. Abort SFTP upload.");
+
+            result.Success = false;
+            result.Message = $"Unity Editor quited with code {process.ExitCode}";
+
+            return result;
+        }
         
         // SFTP上传
         var sftpConfig = ConfigurationUtility.Configuration["Deployment"]["SftpUploadAction"];
