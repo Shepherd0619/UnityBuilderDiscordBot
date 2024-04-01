@@ -11,6 +11,9 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 {
     private SshClient? _client;
     private readonly CancellationTokenSource _loginCancellationTokenSource = new CancellationTokenSource();
+
+    public static SshCredentialService Instance => _instance;
+    private static SshCredentialService _instance;
     
     public async Task<ResultMsg> Login()
     {
@@ -123,6 +126,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     public SshCredentialService(ILogger<SshCredentialService> logger)
     {
         _logger = logger;
+        
         var node = ConfigurationUtility.Configuration["Ssh"];
         _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
         for (int i = 0; i < node["expectedFingerprints"].Count; i++)
@@ -139,6 +143,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _instance = this;
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
@@ -147,5 +152,25 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     {
         await Logout();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
+    }
+
+    public async Task<ResultMsg> RunCommand(string command)
+    {
+        var result = new ResultMsg();
+        var sshCommand = _client.CreateCommand(command);
+        try
+        {
+            await Task.Factory.FromAsync(sshCommand.BeginExecute, sshCommand.EndExecute, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"[{DateTime.Now}][{GetType()}] Error when executing {command}! {ex}");
+            result.Message = ex.ToString();
+            result.Success = false;
+        }
+
+        result.Success = true;
+        result.Message = sshCommand.Result;
+        return result;
     }
 }

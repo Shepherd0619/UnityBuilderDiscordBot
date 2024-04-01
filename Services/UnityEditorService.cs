@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,11 +17,14 @@ public class UnityEditorService : IHostedService
 
     public Dictionary<string, string> EditorInstallations;
     public List<UnityProjectModel> UnityProjects;
-    public readonly Dictionary<UnityProjectModel, Process> RunningProcesses = new Dictionary<UnityProjectModel, Process>();
+
+    public readonly Dictionary<UnityProjectModel, Process> RunningProcesses =
+        new Dictionary<UnityProjectModel, Process>();
+
     public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
 
     public readonly ILogger<UnityEditorService> _logger;
-    
+
     private static UnityEditorService _instance;
     public static UnityEditorService Instance => _instance;
 
@@ -29,7 +33,7 @@ public class UnityEditorService : IHostedService
         _logger = logger;
         _instance = this;
     }
-    
+
     public bool Initialize()
     {
         EditorInstallations = new Dictionary<string, string>();
@@ -53,24 +57,25 @@ public class UnityEditorService : IHostedService
                     case "name":
                         model.name = kvp.Value;
                         break;
-                    
+
                     case "path":
                         model.path = kvp.Value;
                         break;
-                    
+
                     case "unityVersion":
                         model.unityVersion = kvp.Value;
                         break;
-                    
+
                     case "playerBuildOutput":
                         model.playerBuildOutput = kvp.Value;
                         break;
-                    
+
                     case "addressableBuildOutput":
                         model.addressableBuildOutput = kvp.Value;
                         break;
                 }
             }
+
             UnityProjects.Add(model);
             _logger.LogInformation($"[{GetType()}] {model}");
         }
@@ -80,7 +85,7 @@ public class UnityEditorService : IHostedService
             _logger.LogCritical($"[{GetType()}] There is no project defined in appsettings.json!");
             return false;
         }
-        
+
         return true;
     }
 
@@ -117,32 +122,15 @@ public class UnityEditorService : IHostedService
         unityEditor = editor;
         return true;
     }
-    
+
     public async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
-        var result = new ResultMsg();
-        if (!TryGetProject(projectName, out var project))
+        var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
+        if (!result.Success)
         {
-            result.Success = false;
-            result.Message = "Project invalid";
             return result;
         }
 
-        if (!CheckProjectIsRunning(project))
-        {
-            result.Success = false;
-            result.Message = "Project is running";
-            return result;
-        }
-
-        if (!TryGetUnityEditor(project.unityVersion, out var editor))
-        {
-            result.Success = false;
-            result.Message = $"Unity Editor Installation ({project.unityVersion}) invalid";
-            return result;
-        }
-
-        Process process = new Process();
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
@@ -152,21 +140,21 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.Windows:
                 sb.Append("-buildWindowsPlayer ");
                 break;
-            
+
             case TargetPlatform.Windows64:
                 sb.Append("-buildWindows64Player ");
                 break;
-            
+
             case TargetPlatform.Linux:
                 sb.Append("-buildLinux64Player ");
                 break;
-            
+
             case TargetPlatform.Mac:
                 sb.Append("-buildOSXUniversalPlayer ");
                 break;
-            
+
             default:
-                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
 
@@ -176,22 +164,23 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.Mac:
                 fileExtension = ".app";
                 break;
-            
+
             case TargetPlatform.Windows:
                 fileExtension = ".exe";
                 break;
-            
+
             case TargetPlatform.Windows64:
                 fileExtension = ".exe";
                 break;
-            
+
             case TargetPlatform.WindowsServer:
                 fileExtension = ".exe";
                 break;
         }
-        
-        sb.Append($"\"{Path.Combine(project.playerBuildOutput, $"{targetPlatform.ToString()}/{timestamp}/{project.name}{fileExtension}")}\"");
-        
+
+        sb.Append(
+            $"\"{Path.Combine(project.playerBuildOutput, $"{targetPlatform}/{timestamp}/{project.name}{fileExtension}")}\"");
+
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
         process.StartInfo.UseShellExecute = false;
@@ -218,38 +207,47 @@ public class UnityEditorService : IHostedService
             result.Message = $"Failed to start process for {projectName}";
             return result;
         }
+
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
-        
+
         var buildStartLog =
-            $"[{GetType()}] Start building {targetPlatform.ToString()} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
-        
+
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
-        
+
         var buildExitLog =
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
-        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logPath = $"logs/{projectName}_{targetPlatform}_PlayerBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder))
         {
             Directory.CreateDirectory(logFolder);
         }
+
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
 
-        result.Success = true;
+        if (process.ExitCode != 0)
+        {
+            result.Success = false;
+            result.Message = $"Unity Editor quited with exit code {process.ExitCode}";
+            return result;
+        }
         
+        result.Success = true;
+
         return result;
     }
-    
+
     /// <summary>
     /// 打热更包。具体热更打包逻辑得在Unity侧实现。
     /// https://github.com/Shepherd0619/JenkinsBuildUnity.git
@@ -259,29 +257,12 @@ public class UnityEditorService : IHostedService
     /// <returns></returns>
     public async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
-        var result = new ResultMsg();
-        if (!TryGetProject(projectName, out var project))
+        var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
+        if (!result.Success)
         {
-            result.Success = false;
-            result.Message = "Project invalid";
             return result;
         }
 
-        if (!CheckProjectIsRunning(project))
-        {
-            result.Success = false;
-            result.Message = "Project is running";
-            return result;
-        }
-
-        if (!TryGetUnityEditor(project.unityVersion, out var editor))
-        {
-            result.Success = false;
-            result.Message = $"Unity Editor Installation ({project.unityVersion}) invalid";
-            return result;
-        }
-        
-        Process process = new Process();
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
@@ -291,24 +272,24 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.Windows64:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForWindows64");
                 break;
-            
+
             case TargetPlatform.iOS:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForiOS");
                 break;
-            
+
             case TargetPlatform.Android:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForAndroid");
                 break;
-            
+
             case TargetPlatform.Linux:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
                 break;
-            
+
             default:
-                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform.ToString()}");
+                _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
-        
+
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
         process.StartInfo.UseShellExecute = false;
@@ -335,35 +316,135 @@ public class UnityEditorService : IHostedService
             result.Message = $"Failed to start process for {projectName}";
             return result;
         }
+
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
-        
+
         var buildStartLog =
-            $"[{GetType()}] Start building {targetPlatform.ToString()} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
+            $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
-        
+
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
-        
+
         var buildExitLog =
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog);
-        var logPath = $"logs/{projectName}_WindowsPlayer64_{timestamp}.log";
+        var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder))
         {
             Directory.CreateDirectory(logFolder);
         }
+
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
 
-        result.Success = true;
+        if (process.ExitCode != 0)
+        {
+            _logger.LogError(
+                $"[{DateTime.Now}][{GetType()}] Something wrong with the Unity Editor. HotUpdate may already fail. Abort SFTP upload.");
+
+            result.Success = false;
+            result.Message = $"Unity Editor quited with code {process.ExitCode}";
+
+            return result;
+        }
         
+        // SFTP上传
+        var sftpConfig = ConfigurationUtility.Configuration["Deployment"]["SftpUploadAction"];
+        if (sftpConfig != null)
+        {
+            var stringReplace = new StringReplacementUtility(project);
+            var localPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
+                $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
+            var remotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
+                    $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}")
+                // 根据Linux平台处理斜线、反斜线问题
+                .Replace(Path.DirectorySeparatorChar, '/');
+            
+            _logger.LogInformation(
+                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
+            DiscordInteractionModule.Notification(
+                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
+            
+            if (!File.Exists(localPath))
+            {
+                if (Directory.Exists(localPath))
+                {
+                    // 如果是文件夹，给压缩成zip再上传。
+                    var zipLocalPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
+                        $"{Path.GetFileName(localPath)}.zip");
+                    var zipRemotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
+                        $"{Path.GetFileName(localPath)}.zip")
+                        // 根据Linux平台处理斜线、反斜线问题
+                        .Replace(Path.DirectorySeparatorChar, '/');
+                    
+                    if (File.Exists(zipLocalPath))
+                    {
+                        File.Delete(zipLocalPath);    
+                    }
+                    
+                    try
+                    {
+                        ZipFile.CreateFromDirectory(localPath, zipLocalPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            $"[{DateTime.Now}][{GetType()}] Failed when creating zip for {localPath}! Abort the upload for {projectName}.\n{ex}");
+                        result.Success = false;
+                        result.Message = $"Failed when creating zip for {localPath}\n{ex}";
+
+                        return result;
+                    }
+
+                    var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipLocalPath, zipRemotePath);
+                    
+                    // 远程主机上解压
+                    if (uploadResult.Success)
+                    {
+                        var unzipResult =
+                            await SshCredentialService.Instance.RunCommand(
+                                $"unzip -o {zipRemotePath} -d {remotePath}");
+
+                        if (unzipResult.Success)
+                        {
+                            _logger.LogInformation($"[{DateTime.Now}][{GetType()}] Upload success!");
+                            result.Success = true;
+                            return result;
+                        }
+
+                        _logger.LogError(
+                            $"[{DateTime.Now}][{GetType()}] Failed on remote when unzipping! {unzipResult.Message}");
+
+                        result.Success = false;
+                        result.Message = unzipResult.Message;
+                        return result;
+                    }
+
+                    return uploadResult;
+                }
+
+                _logger.LogError(
+                    $"[{DateTime.Now}][{GetType()}] Can't confirm whether {localPath} is a file or directory! Abort the upload for {projectName}");
+
+                result.Success = false;
+                result.Message = $"Can't confirm whether {localPath} is a file or directory!";
+
+                return result;
+            }
+
+            return await SftpFileTransferService.Instance.UploadFile(localPath, remotePath);
+        }
+        
+        result.Success = true;
+
         return result;
     }
 
@@ -378,6 +459,7 @@ public class UnityEditorService : IHostedService
         {
             _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
         }
+
         return Task.CompletedTask;
     }
 
@@ -387,7 +469,47 @@ public class UnityEditorService : IHostedService
         {
             kvp.Value.Kill(true);
         }
+
+        RunningProcesses.Clear();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 准备编辑器进程，若为success，直接从out参数拿所需的参数即可。
+    /// </summary>
+    private ResultMsg PrepareEditorProcess(string projectName, out UnityProjectModel project, out string editor,
+        out Process process)
+    {
+        var result = new ResultMsg();
+        process = null;
+        editor = string.Empty;
+
+        if (!TryGetProject(projectName, out project))
+        {
+            result.Success = false;
+            result.Message = "Project invalid";
+            return result;
+        }
+
+        if (!CheckProjectIsRunning(project))
+        {
+            result.Success = false;
+            result.Message = "Project is running";
+            return result;
+        }
+
+        if (!TryGetUnityEditor(project.unityVersion, out editor))
+        {
+            result.Success = false;
+            result.Message = $"Unity Editor Installation ({project.unityVersion}) invalid";
+            return result;
+        }
+
+        process = new Process();
+
+        result.Success = true;
+
+        return result;
     }
 }

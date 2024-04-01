@@ -1,7 +1,7 @@
 ﻿# UnityBuilderDiscordBot
 This is a Discord DevOps bot helps everyone (no matter whether he or she is programmer or not) build the Unity game executables and hot updates.
 
-Developed by Shepherd Zhu (@Shepherd0619). **Under BSD-Clause-3 license.**
+Developed by Shepherd Zhu (@Shepherd0619). **Under BSD 3-Clause License.**
 
 To contribute, please submit a pull request.
 
@@ -11,7 +11,8 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
 
 ## Features
 1. Build Unity executables and hot updates via Slash Command.
-2. Upload hot updates via SFTP. **(Work in progress)**
+2. Upload hot updates via SFTP. 
+3. Customize build action via JSON. **(Work in progress)**
 
 ## How to use
 ### Set up Discord App
@@ -45,7 +46,9 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
     {
       "name": "example",
       "path": "D:\\Unity_Projects\\example",
-      "unityVersion": "2022.3.14f1"
+      "unityVersion": "2022.3.14f1",
+      "playerBuildOutput": "D:\\Unity_Projects\\example\\Build",
+      "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData"
     }
   ],
   "Ssh": {
@@ -55,6 +58,12 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
     "privateKeyPath": "",
     "keepAliveInterval": "-1",
     "expectedFingerprints": []
+  },
+  "Deployment": {
+    "SftpUploadAction": {
+      "LocalPath": "",
+      "RemotePath": ""
+    }
   }
 }
 ```
