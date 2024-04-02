@@ -10,7 +10,6 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
 {
     private SftpClient? _client;
     private readonly ILogger<SftpFileTransferService> _logger;
-    private readonly SshCredentialService _ssh;
 
     private readonly Dictionary<string, IAsyncResult> _uploadAsyncResults =
         new Dictionary<string, IAsyncResult>();
@@ -21,16 +20,16 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
     public static SftpFileTransferService Instance => _instance;
     private static SftpFileTransferService _instance;
 
-    public SftpFileTransferService(ILogger<SftpFileTransferService> logger, SshCredentialService ssh)
+    public SftpFileTransferService(ILogger<SftpFileTransferService> logger)
     {
         _logger = logger;
-        _ssh = ssh;
-        _client = new SftpClient(ssh.CredentialInfo);
-        _instance = this;
     }
     
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _client = new SftpClient(SshCredentialService.Instance.CredentialInfo);
+        _instance = this;
+        
         await _client.ConnectAsync(cancellationToken);
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
