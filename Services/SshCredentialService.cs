@@ -119,14 +119,17 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
     public ConnectionInfo? CredentialInfo { get; set; }
 
-    private readonly List<string>? _expectedFingerprints;
+    private List<string>? _expectedFingerprints;
 
     private readonly ILogger<SshCredentialService> _logger;
 
     public SshCredentialService(ILogger<SshCredentialService> logger)
     {
         _logger = logger;
-        
+    }
+    
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
         var node = ConfigurationUtility.Configuration["Ssh"];
         _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
         for (int i = 0; i < node["expectedFingerprints"].Count; i++)
@@ -139,11 +142,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
-    }
-    
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
         _instance = this;
+        
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
