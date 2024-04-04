@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SimpleJSON;
+using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Modules;
 using UnityBuilderDiscordBot.Utilities;
@@ -21,9 +22,12 @@ public class UnityEditorService : IHostedService
     public readonly Dictionary<UnityProjectModel, Process> RunningProcesses =
         new Dictionary<UnityProjectModel, Process>();
 
+    public readonly List<ISourceControlService<UnityProjectModel>> RegisteredSourceControlServices =
+        new List<ISourceControlService<UnityProjectModel>>();
+
     public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
 
-    public readonly ILogger<UnityEditorService> _logger;
+    private readonly ILogger<UnityEditorService> _logger;
 
     private static UnityEditorService _instance;
     public static UnityEditorService Instance => _instance;
@@ -73,6 +77,39 @@ public class UnityEditorService : IHostedService
                     case "addressableBuildOutput":
                         model.addressableBuildOutput = kvp.Value;
                         break;
+                    
+                    case "sourceControl":
+                        model.sourceControl = kvp.Value;
+                        break;
+                    
+                    case "branch":
+                        model.branch = kvp.Value;
+                        break;
+                }
+
+                // 注册版本控制服务
+                if (!string.IsNullOrWhiteSpace(model.branch) && !string.IsNullOrWhiteSpace(model.sourceControl))
+                {
+                    switch (model.sourceControl)
+                    {
+                        case "git":
+                            RegisteredSourceControlServices.Add(new GitSourceControlService()
+                            {
+                                Project = model
+                            });
+                            break;
+                        
+                        case "cm":
+                            RegisteredSourceControlServices.Add(new PlasticSCMSourceControlService()
+                            {
+                                Project = model
+                            });
+                            break;
+                        
+                        default:
+                            _logger.LogError($"[{GetType()}.Initialize] Unknown sourceControl for {model.name}");
+                            break;
+                    }
                 }
             }
 
@@ -123,9 +160,47 @@ public class UnityEditorService : IHostedService
         return true;
     }
 
+    public async Task<ResultMsg> TryCheckout(UnityProjectModel project, bool skipNoSourceControl = true)
+    {
+        ISourceControlService<UnityProjectModel> sourceControl =
+            RegisteredSourceControlServices.Find(search => search.Project == project);
+
+        if (sourceControl == null)
+        {
+            _logger.LogWarning($"[{GetType()}.TryCheckout] No SourceControlService found for {project.name}.");
+            return new ResultMsg()
+            {
+                Success = skipNoSourceControl
+            };
+        }
+
+        var result = await sourceControl.Reset(true);
+        if (!result.Success)
+        {
+            _logger.LogError($"[{GetType()}.ToCheckout] Error when resetting the repo of {project.name}.\n{result.Message}");
+            return result;
+        }
+
+        result = await sourceControl.Checkout(project.branch);
+        if (!result.Success)
+        {
+            _logger.LogError(
+                $"[{GetType()}.ToCheckout] ERROR during checkout for {project.name}({project.branch}). \n{result.Message}");
+            return result;
+        }
+
+        return result;
+    }
+
     public async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
         var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        result = await TryCheckout(project);
         if (!result.Success)
         {
             return result;
@@ -258,6 +333,12 @@ public class UnityEditorService : IHostedService
     public async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
         var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
+        if (!result.Success)
+        {
+            return result;
+        }
+        
+        result = await TryCheckout(project);
         if (!result.Success)
         {
             return result;

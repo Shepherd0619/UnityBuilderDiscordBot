@@ -12,7 +12,8 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
 ## Features
 1. Build Unity executables and hot updates via Slash Command.
 2. Upload hot updates via SFTP. 
-3. Customize build action via JSON. **(Work in progress)**
+3. Auto SourceControl (git, cm) fetch/pull/reset.
+4. Customize build action via JSON. **(Work in progress)**
 
 ## How to use
 ### Set up Discord App
@@ -48,7 +49,9 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
       "path": "D:\\Unity_Projects\\example",
       "unityVersion": "2022.3.14f1",
       "playerBuildOutput": "D:\\Unity_Projects\\example\\Build",
-      "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData"
+      "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData",
+      "sourceControl": "git",
+      "branch": "develop"
     }
   ],
   "Ssh": {
