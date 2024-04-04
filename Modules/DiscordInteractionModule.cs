@@ -27,7 +27,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     {
         Console.WriteLine($"{DateTime.Now,-19} [{GetType()}.Say(\"{text}\")] Invoke.");
         ReplyAsync(text, true);
-        return RespondAsync($"Message sent!");
+        return RespondAsync("Message sent!");
     }
 
     [SlashCommand("about", "Print the introduction of this bot.")]
@@ -35,7 +35,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     {
         return RespondAsync("Hi I am Unity Builder Bot, developed by Shepherd Zhu (AKA. Shepherd0619).\n" +
                             "He is a nice Chinese guy and he likes yandere, Black Lagoon, Unity, C#, .NET so much.\n" +
-                            "My main job is to **help everyone (no matter whether he or she is programmer or not) build the Unity game executables and hot updates.**.\n" +
+                            "My main job is to **help everyone (no matter whether he or she is programmer or not) build the Unity game executables and hot updates.**\n" +
                             "If you like this bot, please consider following my master's social media and donate (if possible).\n" +
                             "If you need help, don't hesitate to contact my master.\n" +
                             "https://shepherd0619.github.io/\n\n" +
@@ -53,20 +53,22 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         sb.Append("```");
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
-    
+
     public static async Task Notification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
-                ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel channel) return;
-        
+                ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel
+            channel) return;
+
         await channel.SendMessageAsync(message);
     }
 
     public static async Task LogNotification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
-                ConfigurationUtility.Configuration["Discord"]["logChannel"].AsULong) is not IMessageChannel channel) return;
-        
+                ConfigurationUtility.Configuration["Discord"]["logChannel"].AsULong) is not IMessageChannel
+            channel) return;
+
         await channel.SendMessageAsync(message);
     }
 
@@ -74,81 +76,55 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     public Task BuildPlayer(string projectName, string targetPlatform)
     {
         if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
-        {
             return RespondAsync($"Project **{projectName}** not found!");
-        }
 
         if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
-        {
             return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
-        }
 
         if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
-        {
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
-        }
 
         var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
 
-        if (!parseResult)
-        {
-            return RespondAsync($"Unknown targetPlatform!");
-        }
+        if (!parseResult) return RespondAsync("Unknown targetPlatform!");
 
         var task = Task.Run(async () => await UnityEditorService.Instance.BuildPlayer(projectName, target));
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-            {
-                await Notification($"**{project}** {targetPlatform.ToString()} build completed!");
-            }
+                await Notification($"**{project}** {targetPlatform} build completed!");
             else
-            {
                 await Notification(
-                    $"**{project}** {targetPlatform.ToString()} build failed! \n\n{t.Result.Message}");
-            }
+                    $"**{project}** {targetPlatform} build failed! \n\n{t.Result.Message}");
         });
-        return RespondAsync($"**{project}** {targetPlatform.ToString()} build started!");
+        return RespondAsync($"**{project}** {targetPlatform} build started!");
     }
-    
+
     [SlashCommand("build-hot-update", "Build a hot update.")]
     public Task BuildHotUpdate(string projectName, string targetPlatform)
     {
         if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
-        {
             return RespondAsync($"Project **{projectName}** not found!");
-        }
 
         if (!UnityEditorService.Instance.TryGetUnityEditor(project.unityVersion, out var editor))
-        {
             return RespondAsync($"Unity Editor installation **{project.unityVersion} not found!");
-        }
 
         if (!UnityEditorService.Instance.CheckProjectIsRunning(project))
-        {
             return RespondAsync($"Project **{projectName}** is already running! Please check back another time.");
-        }
 
         var parseResult = Enum.TryParse<TargetPlatform>(targetPlatform, out var target);
 
-        if (!parseResult)
-        {
-            return RespondAsync($"Unknown targetPlatform!");
-        }
+        if (!parseResult) return RespondAsync("Unknown targetPlatform!");
 
         var task = Task.Run(async () => await UnityEditorService.Instance.BuildHotUpdate(projectName, target));
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-            {
-                await Notification($"**{project}** {targetPlatform.ToString()} hot update build completed!");
-            }
+                await Notification($"**{project}** {targetPlatform} hot update build completed!");
             else
-            {
                 await Notification(
-                    $"**{project}** {targetPlatform.ToString()} hot update build failed! \n\n{t.Result.Message}");
-            }
+                    $"**{project}** {targetPlatform} hot update build failed! \n\n{t.Result.Message}");
         });
-        return RespondAsync($"**{project}** {targetPlatform.ToString()} hot update build started!");
+        return RespondAsync($"**{project}** {targetPlatform} hot update build started!");
     }
 }

@@ -10,11 +10,11 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class InteractionHandlingService : IHostedService
 {
+    private readonly IConfiguration _config;
     private readonly DiscordSocketClient _discord;
     private readonly InteractionService _interactions;
-    private readonly IServiceProvider _services;
-    private readonly IConfiguration _config;
     private readonly ILogger<InteractionService> _logger;
+    private readonly IServiceProvider _services;
 
     public InteractionHandlingService(
         DiscordSocketClient discord,
@@ -34,7 +34,7 @@ public class InteractionHandlingService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _discord.Ready += () => _interactions.RegisterCommandsGloballyAsync(true);
+        _discord.Ready += () => _interactions.RegisterCommandsGloballyAsync();
         _discord.InteractionCreated += OnInteractionAsync;
 
         await _interactions.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
@@ -59,10 +59,8 @@ public class InteractionHandlingService : IHostedService
         catch
         {
             if (interaction.Type == InteractionType.ApplicationCommand)
-            {
                 await interaction.GetOriginalResponseAsync()
                     .ContinueWith(msg => msg.Result.DeleteAsync());
-            }
         }
     }
 }

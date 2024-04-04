@@ -8,28 +8,77 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class SftpFileTransferService : IHostedService, IFileTransferService<ConnectionInfo>
 {
-    private SftpClient? _client;
+    private readonly Dictionary<string, IAsyncResult> _downloadAsyncResults = new();
+
     private readonly ILogger<SftpFileTransferService> _logger;
 
-    private readonly Dictionary<string, IAsyncResult> _uploadAsyncResults =
-        new Dictionary<string, IAsyncResult>();
-    
-    private readonly Dictionary<string, IAsyncResult> _downloadAsyncResults =
-        new Dictionary<string, IAsyncResult>();
+    private readonly Dictionary<string, IAsyncResult> _uploadAsyncResults = new();
 
-    public static SftpFileTransferService Instance => _instance;
-    private static SftpFileTransferService _instance;
+    private SftpClient? _client;
 
     public SftpFileTransferService(ILogger<SftpFileTransferService> logger)
     {
         _logger = logger;
     }
-    
+
+    public static SftpFileTransferService Instance { get; private set; }
+
+    public IFileTransferService<ConnectionInfo>.ConnectionInfoStruct? ConnectionInfo { get; set; }
+
+    public async Task<ResultMsg> UploadFile(string path, string remotePath)
+    {
+        var result = new ResultMsg();
+        var isFile = File.Exists(path);
+
+        if (isFile)
+        {
+            _logger.LogInformation(
+                $"[{DateTime.Now}][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path}) to {remotePath}");
+            if (_uploadAsyncResults.ContainsKey(remotePath))
+            {
+                _logger.LogWarning(
+                    $"[{DateTime.Now}][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading!");
+                result.Success = false;
+                result.Message = "Upload in progress";
+                return result;
+            }
+
+            // 默认直接覆盖远端文件
+            result = await UploadFileAsync(File.OpenRead(path), remotePath, true);
+            return result;
+        }
+
+        _logger.LogError($"[{DateTime.Now}][{GetType()}.Upload] Invalid path: {path}.");
+        result.Success = false;
+        result.Message = "Invalid path";
+
+        return result;
+    }
+
+    public async Task<ResultMsg> DownloadFile(string remotePath, string path)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void CancelAllDownload()
+    {
+        foreach (var kvp in _downloadAsyncResults) _client.EndDownloadFile(kvp.Value);
+
+        _downloadAsyncResults.Clear();
+    }
+
+    public void CancelAllUpload()
+    {
+        foreach (var kvp in _uploadAsyncResults) _client.EndUploadFile(kvp.Value);
+
+        _uploadAsyncResults.Clear();
+    }
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _client = new SftpClient(SshCredentialService.Instance.CredentialInfo);
-        _instance = this;
-        
+        Instance = this;
+
         await _client.ConnectAsync(cancellationToken);
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }
@@ -44,54 +93,19 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
         return Task.CompletedTask;
     }
 
-    public IFileTransferService<ConnectionInfo>.ConnectionInfoStruct? ConnectionInfo { get; set; }
-
-    public async Task<ResultMsg> UploadFile(string path, string remotePath)
-    {
-        var result = new ResultMsg();
-        bool isFile = File.Exists(path);
-
-        if (isFile)
-        {
-            _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path}) to {remotePath}");
-            if (_uploadAsyncResults.ContainsKey(remotePath))
-            {
-                _logger.LogWarning(
-                    $"[{DateTime.Now}][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading!");
-                result.Success = false;
-                result.Message = "Upload in progress";
-                return result;
-            }
-            
-            // 默认直接覆盖远端文件
-            result = await UploadFileAsync(File.OpenRead(path), remotePath, true);
-            return result;
-        }
-
-        _logger.LogError($"[{DateTime.Now}][{GetType()}.Upload] Invalid path: {path}.");
-        result.Success = false;
-        result.Message = "Invalid path";
-
-        return result;
-    }
-
     private async Task<ResultMsg> UploadFileAsync(Stream input, string path, bool canOverride)
     {
         var resultMsg = new ResultMsg();
         try
         {
             var dir = Path.GetDirectoryName(path).Replace(Path.DirectorySeparatorChar, '/');
-            if (!_client.Exists(dir))
-            {
-                _client.CreateDirectory(dir);
-            }
-            
+            if (!_client.Exists(dir)) _client.CreateDirectory(dir);
+
             var result = _client.BeginUploadFile(input, path, canOverride, null, null);
             _uploadAsyncResults.Add(path, result);
             result.AsyncWaitHandle.WaitOne();
             _client.EndUploadFile(result);
-            
+
             resultMsg.Success = true;
             resultMsg.Message = string.Empty;
             _uploadAsyncResults.Remove(path);
@@ -106,30 +120,5 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
             _uploadAsyncResults.Remove(path);
             return resultMsg;
         }
-    }
-    
-    public async Task<ResultMsg> DownloadFile(string remotePath, string path)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void CancelAllDownload()
-    {
-        foreach (var kvp in _downloadAsyncResults)
-        {
-            _client.EndDownloadFile(kvp.Value);   
-        }
-        
-        _downloadAsyncResults.Clear();
-    }
-
-    public void CancelAllUpload()
-    {
-        foreach (var kvp in _uploadAsyncResults)
-        {
-            _client.EndUploadFile(kvp.Value);   
-        }
-        
-        _uploadAsyncResults.Clear();
     }
 }

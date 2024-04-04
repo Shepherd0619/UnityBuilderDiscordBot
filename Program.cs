@@ -12,16 +12,19 @@ using UnityBuilderDiscordBot.Utilities;
 
 namespace UnityBuilderDiscordBot;
 
-class Program
+internal class Program
 {
-    public static Task<int> Main(string[] args) => new Program().MainAsync();
+    public static Task<int> Main(string[] args)
+    {
+        return new Program().MainAsync();
+    }
 
     public async Task<int> MainAsync()
     {
-        string title = "Unity Builder Discord Bot";
+        var title = "Unity Builder Discord Bot";
 
         // 计算装饰框的长度
-        int boxLength = title.Length + 4;
+        var boxLength = title.Length + 4;
 
         // 输出顶部边框
         Console.WriteLine(new string('*', boxLength));
@@ -49,9 +52,9 @@ class Program
                 services.AddLogging(builder => builder.AddConsole());
                 services.AddSingleton(serviceProvider =>
                 {
-                    var config = new DiscordSocketConfig()
+                    var config = new DiscordSocketConfig
                     {
-                        RestClientProvider = DefaultRestClientProvider.Create(useProxy: true),
+                        RestClientProvider = DefaultRestClientProvider.Create(true),
                         WebSocketProvider = DefaultWebSocketProvider.Create(WebRequest.DefaultWebProxy),
                         GatewayIntents = GatewayIntents.All
                     };
