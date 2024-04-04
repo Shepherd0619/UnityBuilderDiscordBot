@@ -26,7 +26,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess = new Process();
         RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "cm";
-        RunningProcess.StartInfo.Arguments = $"stb {branch}";
+        RunningProcess.StartInfo.Arguments = $"switchtobranch {branch}";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
@@ -53,7 +53,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess = new Process();
         RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "cm";
-        RunningProcess.StartInfo.Arguments = $"revert . --symlink=skip --ignored=skip";
+        RunningProcess.StartInfo.Arguments = $"undo -r";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
