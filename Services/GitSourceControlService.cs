@@ -5,9 +5,9 @@ using UnityBuilderDiscordBot.Models;
 
 namespace UnityBuilderDiscordBot.Services;
 
-public class GitSourceControlService : ISourceControlService
+public class GitSourceControlService : ISourceControlService<UnityProjectModel>
 {
-    public string WorkingDir { get; set; }
+    public UnityProjectModel Project { get; set; }
 
     public string CurrentBranch { get; set; }
 
@@ -24,7 +24,7 @@ public class GitSourceControlService : ISourceControlService
 
         // Fetch updates from remote
         RunningProcess = new Process();
-        RunningProcess.StartInfo.WorkingDirectory = WorkingDir;
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "git";
         RunningProcess.StartInfo.Arguments = $"fetch";
         RunningProcess.StartInfo.UseShellExecute = false;
@@ -45,7 +45,7 @@ public class GitSourceControlService : ISourceControlService
 
         // Checkout branch
         RunningProcess = new Process();
-        RunningProcess.StartInfo.WorkingDirectory = WorkingDir;
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "git";
         RunningProcess.StartInfo.Arguments = $"checkout {branch}";
         RunningProcess.StartInfo.UseShellExecute = false;
@@ -71,7 +71,7 @@ public class GitSourceControlService : ISourceControlService
         }
 
         RunningProcess = new Process();
-        RunningProcess.StartInfo.WorkingDirectory = WorkingDir;
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "git";
         RunningProcess.StartInfo.Arguments = $"reset {(hard ? "--hard" : "")}";
         RunningProcess.StartInfo.UseShellExecute = false;

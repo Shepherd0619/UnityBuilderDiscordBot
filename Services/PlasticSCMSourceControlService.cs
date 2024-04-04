@@ -5,10 +5,10 @@ using UnityBuilderDiscordBot.Models;
 
 namespace UnityBuilderDiscordBot.Services;
 
-public class PlasticSCMSourceControlService : ISourceControlService, IHostedService
+public class PlasticSCMSourceControlService : ISourceControlService<UnityProjectModel>
 {
-    public string WorkingDir { get; set; }
-
+    public UnityProjectModel Project { get; set; }
+    
     public string CurrentBranch { get; set; }
 
     public string CurrentCommit { get; set; }
@@ -24,7 +24,7 @@ public class PlasticSCMSourceControlService : ISourceControlService, IHostedServ
 
         // Switch to branch
         RunningProcess = new Process();
-        RunningProcess.StartInfo.WorkingDirectory = WorkingDir;
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "cm";
         RunningProcess.StartInfo.Arguments = $"stb {branch}";
         RunningProcess.StartInfo.UseShellExecute = false;
@@ -51,7 +51,7 @@ public class PlasticSCMSourceControlService : ISourceControlService, IHostedServ
 
         // There's no direct equivalent of git reset in Plastic SCM. We can revert the changes instead
         RunningProcess = new Process();
-        RunningProcess.StartInfo.WorkingDirectory = WorkingDir;
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "cm";
         RunningProcess.StartInfo.Arguments = $"revert . --symlink=skip --ignored=skip";
         RunningProcess.StartInfo.UseShellExecute = false;
@@ -66,15 +66,5 @@ public class PlasticSCMSourceControlService : ISourceControlService, IHostedServ
             Success = RunningProcess.ExitCode == 0,
             Message = output
         };
-    }
-
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
     }
 }

@@ -3,9 +3,9 @@ using UnityBuilderDiscordBot.Models;
 
 namespace UnityBuilderDiscordBot.Interfaces;
 
-public interface ISourceControlService
+public interface ISourceControlService<T>
 {
-    public string WorkingDir { get; set; }
+    public T Project { get; set; }
     
     public string CurrentBranch { get; set; }
     
