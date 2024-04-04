@@ -1,6 +1,4 @@
-﻿using SimpleJSON;
-
-namespace UnityBuilderDiscordBot.Models;
+﻿namespace UnityBuilderDiscordBot.Models;
 
 public class UnityProjectModel
 {
@@ -11,7 +9,7 @@ public class UnityProjectModel
     public string addressableBuildOutput { get; set; }
     public string sourceControl { get; set; }
     public string branch { get; set; }
-    
+
     public override string ToString()
     {
         return

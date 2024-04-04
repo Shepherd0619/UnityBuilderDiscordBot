@@ -13,41 +13,59 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class UnityEditorService : IHostedService
 {
+    public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
+
+    private readonly ILogger<UnityEditorService> _logger;
+
+    public readonly List<ISourceControlService<UnityProjectModel>> RegisteredSourceControlServices = new();
+
+    public readonly Dictionary<UnityProjectModel, Process> RunningProcesses = new();
     // 打包参数
     // -nographics -batchmode -quit -buildWindowsPlayer "${WORKSPACE}\Build\Windows\${BUILD_NUMBER}\output\your_game.exe"
 
     public Dictionary<string, string> EditorInstallations;
     public List<UnityProjectModel> UnityProjects;
 
-    public readonly Dictionary<UnityProjectModel, Process> RunningProcesses =
-        new Dictionary<UnityProjectModel, Process>();
-
-    public readonly List<ISourceControlService<UnityProjectModel>> RegisteredSourceControlServices =
-        new List<ISourceControlService<UnityProjectModel>>();
-
-    public const string NecessaryCommandLineArgs = "-nographics -batchmode -quit -logFile - ";
-
-    private readonly ILogger<UnityEditorService> _logger;
-
-    private static UnityEditorService _instance;
-    public static UnityEditorService Instance => _instance;
-
     public UnityEditorService(ILogger<UnityEditorService> logger)
     {
         _logger = logger;
-        _instance = this;
+        Instance = this;
+    }
+
+    public static UnityEditorService Instance { get; private set; }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (!Initialize())
+        {
+            _logger.LogCritical($"[{DateTime.Now}][{GetType()}.StartAsync] Initialize failed!");
+            Environment.Exit(-1);
+        }
+        else
+        {
+            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        foreach (var kvp in RunningProcesses) kvp.Value.Kill(true);
+
+        RunningProcesses.Clear();
+        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
+        return Task.CompletedTask;
     }
 
     public bool Initialize()
     {
         EditorInstallations = new Dictionary<string, string>();
         foreach (JSONNode node in ConfigurationUtility.Configuration["Unity"].AsArray)
+        foreach (var kvp in node)
         {
-            foreach (var kvp in node)
-            {
-                EditorInstallations.Add(kvp.Key, kvp.Value.Value);
-                _logger.LogInformation($"[{GetType()}] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
-            }
+            EditorInstallations.Add(kvp.Key, kvp.Value.Value);
+            _logger.LogInformation($"[{GetType()}] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
         }
 
         UnityProjects = new List<UnityProjectModel>();
@@ -77,11 +95,11 @@ public class UnityEditorService : IHostedService
                     case "addressableBuildOutput":
                         model.addressableBuildOutput = kvp.Value;
                         break;
-                    
+
                     case "sourceControl":
                         model.sourceControl = kvp.Value;
                         break;
-                    
+
                     case "branch":
                         model.branch = kvp.Value;
                         break;
@@ -89,28 +107,26 @@ public class UnityEditorService : IHostedService
 
                 // 注册版本控制服务
                 if (!string.IsNullOrWhiteSpace(model.branch) && !string.IsNullOrWhiteSpace(model.sourceControl))
-                {
                     switch (model.sourceControl)
                     {
                         case "git":
-                            RegisteredSourceControlServices.Add(new GitSourceControlService()
+                            RegisteredSourceControlServices.Add(new GitSourceControlService
                             {
                                 Project = model
                             });
                             break;
-                        
+
                         case "cm":
-                            RegisteredSourceControlServices.Add(new PlasticSCMSourceControlService()
+                            RegisteredSourceControlServices.Add(new PlasticSCMSourceControlService
                             {
                                 Project = model
                             });
                             break;
-                        
+
                         default:
                             _logger.LogError($"[{GetType()}.Initialize] Unknown sourceControl for {model.name}");
                             break;
                     }
-                }
             }
 
             UnityProjects.Add(model);
@@ -162,13 +178,13 @@ public class UnityEditorService : IHostedService
 
     public async Task<ResultMsg> TryCheckout(UnityProjectModel project, bool skipNoSourceControl = true)
     {
-        ISourceControlService<UnityProjectModel> sourceControl =
+        var sourceControl =
             RegisteredSourceControlServices.Find(search => search.Project == project);
 
         if (sourceControl == null)
         {
             _logger.LogWarning($"[{GetType()}.TryCheckout] No SourceControlService found for {project.name}.");
-            return new ResultMsg()
+            return new ResultMsg
             {
                 Success = skipNoSourceControl
             };
@@ -177,7 +193,8 @@ public class UnityEditorService : IHostedService
         var result = await sourceControl.Reset(true);
         if (!result.Success)
         {
-            _logger.LogError($"[{GetType()}.ToCheckout] Error when resetting the repo of {project.name}.\n{result.Message}");
+            _logger.LogError(
+                $"[{GetType()}.ToCheckout] Error when resetting the repo of {project.name}.\n{result.Message}");
             return result;
         }
 
@@ -195,16 +212,10 @@ public class UnityEditorService : IHostedService
     public async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
         var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
-        if (!result.Success)
-        {
-            return result;
-        }
+        if (!result.Success) return result;
 
         result = await TryCheckout(project);
-        if (!result.Success)
-        {
-            return result;
-        }
+        if (!result.Success) return result;
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -233,7 +244,7 @@ public class UnityEditorService : IHostedService
                 break;
         }
 
-        string fileExtension = string.Empty;
+        var fileExtension = string.Empty;
         switch (targetPlatform)
         {
             case TargetPlatform.Mac:
@@ -262,11 +273,11 @@ public class UnityEditorService : IHostedService
         process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.RedirectStandardError = true;
         var output = new StringBuilder();
-        int lineCount = 0;
+        var lineCount = 0;
         process.OutputDataReceived += (sender, args) =>
         {
             // Prepend line numbers to each line of the output.
-            if (!String.IsNullOrEmpty(args.Data))
+            if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
                 var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
@@ -302,10 +313,7 @@ public class UnityEditorService : IHostedService
         await DiscordInteractionModule.Notification(buildExitLog);
         var logPath = $"logs/{projectName}_{targetPlatform}_PlayerBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        if (!Directory.Exists(logFolder))
-        {
-            Directory.CreateDirectory(logFolder);
-        }
+        if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
 
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
@@ -317,15 +325,15 @@ public class UnityEditorService : IHostedService
             result.Message = $"Unity Editor quited with exit code {process.ExitCode}";
             return result;
         }
-        
+
         result.Success = true;
 
         return result;
     }
 
     /// <summary>
-    /// 打热更包。具体热更打包逻辑得在Unity侧实现。
-    /// https://github.com/Shepherd0619/JenkinsBuildUnity.git
+    ///     打热更包。具体热更打包逻辑得在Unity侧实现。
+    ///     https://github.com/Shepherd0619/JenkinsBuildUnity.git
     /// </summary>
     /// <param name="projectName"></param>
     /// <param name="targetPlatform"></param>
@@ -333,16 +341,10 @@ public class UnityEditorService : IHostedService
     public async Task<ResultMsg> BuildHotUpdate(string projectName, TargetPlatform targetPlatform)
     {
         var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
-        if (!result.Success)
-        {
-            return result;
-        }
-        
+        if (!result.Success) return result;
+
         result = await TryCheckout(project);
-        if (!result.Success)
-        {
-            return result;
-        }
+        if (!result.Success) return result;
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -377,11 +379,11 @@ public class UnityEditorService : IHostedService
         process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.RedirectStandardError = true;
         var output = new StringBuilder();
-        int lineCount = 0;
+        var lineCount = 0;
         process.OutputDataReceived += (sender, args) =>
         {
             // Prepend line numbers to each line of the output.
-            if (!String.IsNullOrEmpty(args.Data))
+            if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
                 var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
@@ -417,10 +419,7 @@ public class UnityEditorService : IHostedService
         await DiscordInteractionModule.Notification(buildExitLog);
         var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        if (!Directory.Exists(logFolder))
-        {
-            Directory.CreateDirectory(logFolder);
-        }
+        if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
 
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
@@ -436,7 +435,7 @@ public class UnityEditorService : IHostedService
 
             return result;
         }
-        
+
         // SFTP上传
         var sftpConfig = ConfigurationUtility.Configuration["Deployment"]["SftpUploadAction"];
         if (sftpConfig != null)
@@ -448,12 +447,12 @@ public class UnityEditorService : IHostedService
                     $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}")
                 // 根据Linux平台处理斜线、反斜线问题
                 .Replace(Path.DirectorySeparatorChar, '/');
-            
+
             _logger.LogInformation(
                 $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
             DiscordInteractionModule.Notification(
                 $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
-            
+
             if (!File.Exists(localPath))
             {
                 if (Directory.Exists(localPath))
@@ -462,15 +461,12 @@ public class UnityEditorService : IHostedService
                     var zipLocalPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
                         $"{Path.GetFileName(localPath)}.zip");
                     var zipRemotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
-                        $"{Path.GetFileName(localPath)}.zip")
+                            $"{Path.GetFileName(localPath)}.zip")
                         // 根据Linux平台处理斜线、反斜线问题
                         .Replace(Path.DirectorySeparatorChar, '/');
-                    
-                    if (File.Exists(zipLocalPath))
-                    {
-                        File.Delete(zipLocalPath);    
-                    }
-                    
+
+                    if (File.Exists(zipLocalPath)) File.Delete(zipLocalPath);
+
                     try
                     {
                         ZipFile.CreateFromDirectory(localPath, zipLocalPath);
@@ -486,7 +482,7 @@ public class UnityEditorService : IHostedService
                     }
 
                     var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipLocalPath, zipRemotePath);
-                    
+
                     // 远程主机上解压
                     if (uploadResult.Success)
                     {
@@ -523,41 +519,14 @@ public class UnityEditorService : IHostedService
 
             return await SftpFileTransferService.Instance.UploadFile(localPath, remotePath);
         }
-        
+
         result.Success = true;
 
         return result;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        if (!Initialize())
-        {
-            _logger.LogCritical($"[{DateTime.Now}][{GetType()}.StartAsync] Initialize failed!");
-            Environment.Exit(-1);
-        }
-        else
-        {
-            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        foreach (var kvp in RunningProcesses)
-        {
-            kvp.Value.Kill(true);
-        }
-
-        RunningProcesses.Clear();
-        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
-        return Task.CompletedTask;
-    }
-
     /// <summary>
-    /// 准备编辑器进程，若为success，直接从out参数拿所需的参数即可。
+    ///     准备编辑器进程，若为success，直接从out参数拿所需的参数即可。
     /// </summary>
     private ResultMsg PrepareEditorProcess(string projectName, out UnityProjectModel project, out string editor,
         out Process process)

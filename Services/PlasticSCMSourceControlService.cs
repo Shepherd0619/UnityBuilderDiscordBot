@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Microsoft.Extensions.Hosting;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 
@@ -8,7 +7,7 @@ namespace UnityBuilderDiscordBot.Services;
 public class PlasticSCMSourceControlService : ISourceControlService<UnityProjectModel>
 {
     public UnityProjectModel Project { get; set; }
-    
+
     public string CurrentBranch { get; set; }
 
     public string CurrentCommit { get; set; }
@@ -18,9 +17,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
     public async Task<ResultMsg> Checkout(string branch)
     {
         if (RunningProcess != null && !RunningProcess.HasExited)
-        {
             return new ResultMsg { Success = false, Message = "Another process is still running." };
-        }
 
         // Switch to branch
         RunningProcess = new Process();
@@ -31,7 +28,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        string output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
         await RunningProcess.WaitForExitAsync();
 
         CurrentBranch = branch;
@@ -45,20 +42,18 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
     public async Task<ResultMsg> Reset(bool hard)
     {
         if (RunningProcess != null && !RunningProcess.HasExited)
-        {
             return new ResultMsg { Success = false, Message = "Another process is still running." };
-        }
 
         // There's no direct equivalent of git reset in Plastic SCM. We can revert the changes instead
         RunningProcess = new Process();
         RunningProcess.StartInfo.WorkingDirectory = Project.path;
         RunningProcess.StartInfo.FileName = "cm";
-        RunningProcess.StartInfo.Arguments = $"undo -r";
+        RunningProcess.StartInfo.Arguments = "undo -r";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        string output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
         await RunningProcess.WaitForExitAsync();
 
         return new ResultMsg

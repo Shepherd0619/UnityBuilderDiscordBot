@@ -8,27 +8,27 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class DiscordStartupService : IHostedService
 {
-    public static DiscordSocketClient Discord => _discord;
-    private static DiscordSocketClient _discord;
     private readonly ILogger<DiscordSocketClient> _logger;
 
     public DiscordStartupService(DiscordSocketClient discord, ILogger<DiscordSocketClient> logger)
     {
-        _discord = discord;
+        Discord = discord;
         _logger = logger;
 
-        _discord.Log += Program.Log;
+        Discord.Log += Program.Log;
     }
+
+    public static DiscordSocketClient Discord { get; private set; }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        await _discord.LoginAsync(TokenType.Bot, ConfigurationUtility.Configuration["Discord"]["token"]);
-        await _discord.StartAsync();
+        await Discord.LoginAsync(TokenType.Bot, ConfigurationUtility.Configuration["Discord"]["token"]);
+        await Discord.StartAsync();
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        await _discord.LogoutAsync();
-        await _discord.StopAsync();
+        await Discord.LogoutAsync();
+        await Discord.StopAsync();
     }
 }

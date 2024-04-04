@@ -9,12 +9,19 @@ namespace UnityBuilderDiscordBot.Services;
 
 public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedService
 {
+    private readonly ILogger<SshCredentialService> _logger;
+    private readonly CancellationTokenSource _loginCancellationTokenSource = new();
     private SshClient? _client;
-    private readonly CancellationTokenSource _loginCancellationTokenSource = new CancellationTokenSource();
 
-    public static SshCredentialService Instance => _instance;
-    private static SshCredentialService _instance;
-    
+    private List<string>? _expectedFingerprints;
+
+    public SshCredentialService(ILogger<SshCredentialService> logger)
+    {
+        _logger = logger;
+    }
+
+    public static SshCredentialService Instance { get; private set; }
+
     public async Task<ResultMsg> Login()
     {
         var result = new ResultMsg();
@@ -26,15 +33,12 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
             return result;
         }
 
-        if (_client != null)
-        {
-            _client.Dispose();
-        }
+        if (_client != null) _client.Dispose();
 
         _client = new SshClient(CredentialInfo);
-        
+
         var tcs = new TaskCompletionSource<ResultMsg>(); // 创建一个用于等待结果的TaskCompletionSource
-        
+
         // SSH事件注册
         _client.HostKeyReceived += (sender, args) =>
         {
@@ -58,7 +62,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         {
             _logger.LogError($"[{DateTime.Now}][{GetType()}] SshClient ErrorOccurred! {args.Exception}");
         };
-        
+
         // 保持SSH会话
         try
         {
@@ -68,7 +72,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         {
             _client.KeepAliveInterval = new TimeSpan(-1);
         }
-        
+
         // 连接
         try
         {
@@ -86,12 +90,10 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         }
 
         var success = await tcs.Task;
-        if(success.Success)
+        if (success.Success)
             _logger.LogInformation($"[{DateTime.Now}][{GetType()}.Login] Login success!");
         else
-        {
             _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] login failed! {result.Message}");
-        }
 
         return success;
     }
@@ -106,7 +108,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
             return Task.FromResult(result);
         }
-        
+
         _loginCancellationTokenSource.Cancel();
         _client.Disconnect();
         _client.Dispose();
@@ -119,20 +121,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
     public ConnectionInfo? CredentialInfo { get; set; }
 
-    private List<string>? _expectedFingerprints;
-
-    private readonly ILogger<SshCredentialService> _logger;
-
-    public SshCredentialService(ILogger<SshCredentialService> logger)
-    {
-        _logger = logger;
-    }
-    
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var node = ConfigurationUtility.Configuration["Ssh"];
         _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
-        for (int i = 0; i < node["expectedFingerprints"].Count; i++)
+        for (var i = 0; i < node["expectedFingerprints"].Count; i++)
         {
             _expectedFingerprints.Add(node["expectedFingerprints"][i]);
             _logger.LogInformation(
@@ -142,8 +135,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
-        _instance = this;
-        
+        Instance = this;
+
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
     }

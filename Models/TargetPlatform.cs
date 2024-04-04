@@ -14,7 +14,7 @@ public enum TargetPlatform
 
 public enum UnityTargetPlatform
 {
-    StandaloneWindows, 
+    StandaloneWindows,
     StandaloneWindows64,
     StandaloneLinux64,
     StandaloneOSX,
