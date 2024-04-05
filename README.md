@@ -20,8 +20,6 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
 
 ## How to use
 
-### Set up Discord App
-
 1. Visit https://discord.com/developers/applications and create an application.
 
 ![alt text](image.png)
@@ -56,7 +54,13 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
       "playerBuildOutput": "D:\\Unity_Projects\\example\\Build",
       "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData",
       "sourceControl": "git",
-      "branch": "develop"
+      "branch": "develop",
+      "deployment": {
+        "SftpUploadAction": {
+          "LocalPath": "D:\\Unity_Projects\\example\\ServerData",
+          "RemotePath": "/var/www/html/ServerData"
+        }
+      }
     }
   ],
   "Ssh": {
@@ -66,12 +70,6 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
     "privateKeyPath": "",
     "keepAliveInterval": "-1",
     "expectedFingerprints": []
-  },
-  "Deployment": {
-    "SftpUploadAction": {
-      "LocalPath": "",
-      "RemotePath": ""
-    }
   }
 }
 ```
