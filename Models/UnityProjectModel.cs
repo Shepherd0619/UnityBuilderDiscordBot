@@ -1,4 +1,6 @@
-﻿namespace UnityBuilderDiscordBot.Models;
+﻿using UnityBuilderDiscordBot.Interfaces;
+
+namespace UnityBuilderDiscordBot.Models;
 
 public class UnityProjectModel
 {
@@ -9,6 +11,8 @@ public class UnityProjectModel
     public string addressableBuildOutput { get; set; }
     public string sourceControl { get; set; }
     public string branch { get; set; }
+    
+    public List<IAction> deployment { get; set; }
 
     public override string ToString()
     {
