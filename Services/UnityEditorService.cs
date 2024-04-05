@@ -371,7 +371,7 @@ public class UnityEditorService : IHostedService
         
         // 清理热更新目录
         if(Directory.Exists(project.addressableBuildOutput)) Directory.Delete(project.addressableBuildOutput);
-
+        
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
@@ -525,7 +525,7 @@ public class UnityEditorService : IHostedService
             if (!result.Success)
             {
                 _logger.LogError(
-                    $"[{GetType()}.ExecuteDeploymentAction] ERROR when execute {i} deployment action of {project.name}");
+                    $"[{GetType()}.ExecuteDeploymentAction] ERROR when execute {i} deployment action of {project.name}.\n{result.Message}");
                 return result;
             }
         }

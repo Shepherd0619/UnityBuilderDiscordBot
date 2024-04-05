@@ -19,7 +19,7 @@ public class SftpFileUploadAction : IAction
             {
                 var result = new ResultMsg();
                 // 如果是文件夹，给压缩成zip再上传。
-                var zipLocalPath = Path.Combine(LocalPath, $"{Path.GetFileName(LocalPath)}.zip");
+                var zipLocalPath = Path.Combine(new DirectoryInfo(LocalPath).Parent.FullName, $"{Path.GetFileName(LocalPath)}.zip");
                 var zipRemotePath = Path.Combine(RemotePath, $"{Path.GetFileName(LocalPath)}.zip")
                     // 根据Linux平台处理斜线、反斜线问题
                     .Replace(Path.DirectorySeparatorChar, '/');
