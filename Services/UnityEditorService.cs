@@ -368,6 +368,9 @@ public class UnityEditorService : IHostedService
 
         result = await TryCheckout(project);
         if (!result.Success) return result;
+        
+        // 清理热更新目录
+        if(Directory.Exists(project.addressableBuildOutput)) Directory.Delete(project.addressableBuildOutput);
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -378,24 +381,24 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.Windows64:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForWindows64");
                 break;
-
+        
             case TargetPlatform.iOS:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForiOS");
                 break;
-
+        
             case TargetPlatform.Android:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForAndroid");
                 break;
-
+        
             case TargetPlatform.Linux:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
                 break;
-
+        
             default:
                 _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
-
+        
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
         process.StartInfo.UseShellExecute = false;
@@ -422,19 +425,19 @@ public class UnityEditorService : IHostedService
             result.Message = $"Failed to start process for {projectName}";
             return result;
         }
-
+        
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
-
+        
         var buildStartLog =
             $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
-
+        
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
-
+        
         var buildExitLog =
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
@@ -443,19 +446,19 @@ public class UnityEditorService : IHostedService
         var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
-
+        
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
-
+        
         if (process.ExitCode != 0)
         {
             _logger.LogError(
                 $"[{DateTime.Now}][{GetType()}] Something wrong with the Unity Editor. HotUpdate may already fail. Abort SFTP upload.");
-
+        
             result.Success = false;
             result.Message = $"Unity Editor quited with code {process.ExitCode}";
-
+        
             return result;
         }
 
