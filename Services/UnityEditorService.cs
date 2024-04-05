@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SimpleJSON;
+using UnityBuilderDiscordBot.Actions;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Modules;
@@ -102,6 +103,28 @@ public class UnityEditorService : IHostedService
 
                     case "branch":
                         model.branch = kvp.Value;
+                        break;
+                    
+                    case "deployment":
+                        model.deployment = new List<IAction>();
+                        foreach (var action in node["deployment"])
+                        {
+                            switch (action.Key)
+                            {
+                                case "SftpUploadAction":
+                                    model.deployment.Add(new SftpFileUploadAction()
+                                    {
+                                        LocalPath = action.Value["LocalPath"],
+                                        RemotePath = action.Value["RemotePath"]
+                                    });
+                                    break;
+                                
+                                default:
+                                    _logger.LogWarning(
+                                        $"[{GetType()}.Initialize] Unsupported Deployment Action \"{action.Key}\".");
+                                    break;
+                            }
+                        }
                         break;
                 }
 
@@ -345,7 +368,10 @@ public class UnityEditorService : IHostedService
 
         result = await TryCheckout(project);
         if (!result.Success) return result;
-
+        
+        // 清理热更新目录
+        if(Directory.Exists(project.addressableBuildOutput)) Directory.Delete(project.addressableBuildOutput);
+        
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
@@ -355,24 +381,24 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.Windows64:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForWindows64");
                 break;
-
+        
             case TargetPlatform.iOS:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForiOS");
                 break;
-
+        
             case TargetPlatform.Android:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForAndroid");
                 break;
-
+        
             case TargetPlatform.Linux:
                 sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
                 break;
-
+        
             default:
                 _logger.LogError($"[{GetType()}] Unsupported targetPlatform {targetPlatform}");
                 break;
         }
-
+        
         process.StartInfo.FileName = editor;
         process.StartInfo.Arguments = sb.ToString();
         process.StartInfo.UseShellExecute = false;
@@ -399,19 +425,19 @@ public class UnityEditorService : IHostedService
             result.Message = $"Failed to start process for {projectName}";
             return result;
         }
-
+        
         process.BeginOutputReadLine();
         RunningProcesses.Add(project, process);
-
+        
         var buildStartLog =
             $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         await DiscordInteractionModule.Notification(buildStartLog);
-
+        
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
-
+        
         var buildExitLog =
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
@@ -420,109 +446,23 @@ public class UnityEditorService : IHostedService
         var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
-
+        
         await File.WriteAllTextAsync(logPath, output.ToString());
         _logger.LogInformation(
             $"[{GetType()}] build log of {projectName} can be found in {Path.Combine(AppDomain.CurrentDomain.BaseDirectory, logPath)}.");
-
+        
         if (process.ExitCode != 0)
         {
             _logger.LogError(
                 $"[{DateTime.Now}][{GetType()}] Something wrong with the Unity Editor. HotUpdate may already fail. Abort SFTP upload.");
-
+        
             result.Success = false;
             result.Message = $"Unity Editor quited with code {process.ExitCode}";
-
+        
             return result;
         }
 
-        // SFTP上传
-        var sftpConfig = ConfigurationUtility.Configuration["Deployment"]["SftpUploadAction"];
-        if (sftpConfig != null)
-        {
-            var stringReplace = new StringReplacementUtility(project);
-            var localPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
-                $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}");
-            var remotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
-                    $"{TargetPlatformEnumConverter.ConvertToUnityTargetPlatform(targetPlatform)}")
-                // 根据Linux平台处理斜线、反斜线问题
-                .Replace(Path.DirectorySeparatorChar, '/');
-
-            _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
-            DiscordInteractionModule.Notification(
-                $"[{DateTime.Now}][{GetType()}] Starting sftp upload! LocalPath: {localPath}, RemotePath: {remotePath}");
-
-            if (!File.Exists(localPath))
-            {
-                if (Directory.Exists(localPath))
-                {
-                    // 如果是文件夹，给压缩成zip再上传。
-                    var zipLocalPath = Path.Combine(stringReplace.Replace(sftpConfig["LocalPath"].Value),
-                        $"{Path.GetFileName(localPath)}.zip");
-                    var zipRemotePath = Path.Combine(stringReplace.Replace(sftpConfig["RemotePath"].Value),
-                            $"{Path.GetFileName(localPath)}.zip")
-                        // 根据Linux平台处理斜线、反斜线问题
-                        .Replace(Path.DirectorySeparatorChar, '/');
-
-                    if (File.Exists(zipLocalPath)) File.Delete(zipLocalPath);
-
-                    try
-                    {
-                        ZipFile.CreateFromDirectory(localPath, zipLocalPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(
-                            $"[{DateTime.Now}][{GetType()}] Failed when creating zip for {localPath}! Abort the upload for {projectName}.\n{ex}");
-                        result.Success = false;
-                        result.Message = $"Failed when creating zip for {localPath}\n{ex}";
-
-                        return result;
-                    }
-
-                    var uploadResult = await SftpFileTransferService.Instance.UploadFile(zipLocalPath, zipRemotePath);
-
-                    // 远程主机上解压
-                    if (uploadResult.Success)
-                    {
-                        var unzipResult =
-                            await SshCredentialService.Instance.RunCommand(
-                                $"unzip -o {zipRemotePath} -d {remotePath}");
-
-                        if (unzipResult.Success)
-                        {
-                            _logger.LogInformation($"[{DateTime.Now}][{GetType()}] Upload success!");
-                            result.Success = true;
-                            return result;
-                        }
-
-                        _logger.LogError(
-                            $"[{DateTime.Now}][{GetType()}] Failed on remote when unzipping! {unzipResult.Message}");
-
-                        result.Success = false;
-                        result.Message = unzipResult.Message;
-                        return result;
-                    }
-
-                    return uploadResult;
-                }
-
-                _logger.LogError(
-                    $"[{DateTime.Now}][{GetType()}] Can't confirm whether {localPath} is a file or directory! Abort the upload for {projectName}");
-
-                result.Success = false;
-                result.Message = $"Can't confirm whether {localPath} is a file or directory!";
-
-                return result;
-            }
-
-            return await SftpFileTransferService.Instance.UploadFile(localPath, remotePath);
-        }
-
-        result.Success = true;
-
-        return result;
+        return await ExecuteDeploymentAction(project);
     }
 
     /// <summary>
@@ -561,5 +501,41 @@ public class UnityEditorService : IHostedService
         result.Success = true;
 
         return result;
+    }
+
+    private async Task<ResultMsg> ExecuteDeploymentAction(UnityProjectModel project)
+    {
+        if (project.deployment.Count <= 0)
+        {
+            _logger.LogWarning($"[{GetType()}.ExecuteDeploymentAction] No deployment action defined for {project.name}.");
+            return new ResultMsg()
+            {
+                Success = true,
+                Message = "No deployment action defined."
+            };
+        }
+        
+        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Start executing deployment for {project.name}");
+        DiscordInteractionModule.Notification($"Start executing deployment for {project.name}.");
+
+        for (int i = 0; i < project.deployment.Count; i++)
+        {
+            var result = await project.deployment[i].Invoke();
+
+            if (!result.Success)
+            {
+                _logger.LogError(
+                    $"[{GetType()}.ExecuteDeploymentAction] ERROR when execute {i} deployment action of {project.name}.\n{result.Message}");
+                return result;
+            }
+        }
+        
+        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Finished for {project.name}");
+        DiscordInteractionModule.Notification($"Finished executing deployment for {project.name}.");
+
+        return new ResultMsg()
+        {
+            Success = true
+        };
     }
 }

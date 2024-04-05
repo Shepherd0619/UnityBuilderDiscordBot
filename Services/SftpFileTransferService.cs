@@ -44,7 +44,9 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
             }
 
             // 默认直接覆盖远端文件
-            result = await UploadFileAsync(File.OpenRead(path), remotePath, true);
+            FileStream input = File.OpenRead(path);
+            result = await UploadFileAsync(input, remotePath, true);
+            
             return result;
         }
 
@@ -109,6 +111,7 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
             resultMsg.Success = true;
             resultMsg.Message = string.Empty;
             _uploadAsyncResults.Remove(path);
+            input.Close();
             return resultMsg;
         }
         catch (Exception ex)
@@ -118,6 +121,7 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
             resultMsg.Success = false;
             resultMsg.Message = ex.ToString();
             _uploadAsyncResults.Remove(path);
+            input.Close();
             return resultMsg;
         }
     }
