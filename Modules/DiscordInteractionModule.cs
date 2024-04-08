@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using Discord;
+using Discord.Commands;
 using Discord.Interactions;
+using Discord.WebSocket;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -22,12 +24,18 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     [SlashCommand("say", "Make the bot say something.")]
-    [RequireUserPermission(GuildPermission.Administrator)]
+    [Discord.Interactions.RequireUserPermission(GuildPermission.Administrator)]
     public Task Say(string text)
     {
         Console.WriteLine($"{DateTime.Now,-19} [{GetType()}.Say(\"{text}\")] Invoke.");
         ReplyAsync(text, true);
         return RespondAsync("Message sent!");
+    }
+
+    [SlashCommand("show-channel-id", "Show a channel's id.")]
+    public Task ShowChannelId(SocketTextChannel channel)
+    {
+        return RespondAsync($"This channel id is {channel.Id}", ephemeral:true);
     }
 
     [SlashCommand("about", "Print the introduction of this bot.")]
@@ -44,7 +52,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     [SlashCommand("settings", "Print appsettings.json.")]
-    [RequireUserPermission(GuildPermission.Administrator)]
+    [Discord.Interactions.RequireUserPermission(GuildPermission.Administrator)]
     public Task PrintSettings()
     {
         var sb = new StringBuilder();
@@ -54,11 +62,28 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
 
+    /// <summary>
+    /// 向预设好的频道发送信息
+    /// </summary>
+    /// <param name="message"></param>
     public static async Task Notification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
                 ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel
             channel) return;
+
+        await channel.SendMessageAsync(message);
+    }
+
+    /// <summary>
+    /// 向用户自定义的频道发送信息
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="channelId"></param>
+    public static async Task Notification(string message, ulong channelId)
+    {
+        if (await DiscordStartupService.Discord.GetChannelAsync(channelId) is not IMessageChannel channel) 
+            return;
 
         await channel.SendMessageAsync(message);
     }
