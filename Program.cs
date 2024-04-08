@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using Discord;
+using Discord.Commands;
 using Discord.Interactions;
 using Discord.Net.Rest;
 using Discord.Net.WebSockets;
@@ -61,9 +62,11 @@ internal class Program
                     return new DiscordSocketClient(config);
                 }); // Add the discord client to services
                 services.AddSingleton<InteractionService>(); // Add the interaction service to services
+                services.AddSingleton<CommandService>();
                 services.AddHostedService<UnityEditorService>(); // Add the Unity Editor service
                 services.AddHostedService<InteractionHandlingService>(); // Add the slash command handler
                 services.AddHostedService<DiscordStartupService>(); // Add the discord startup service
+                services.AddHostedService<DiscordTextCommandService>(); // Add the discord text command service
                 services.AddHostedService<SshCredentialService>(); // Add the SSH 
                 services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
             });
