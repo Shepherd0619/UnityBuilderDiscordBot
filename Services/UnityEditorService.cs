@@ -307,7 +307,7 @@ public class UnityEditorService : IHostedService
             if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
-                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                var log = $"[{lineCount}][{DateTime.Now}][{project.name}]: {args.Data}";
                 output.Append($"\n{log}");
                 _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
@@ -413,7 +413,7 @@ public class UnityEditorService : IHostedService
             if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
-                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                var log = $"[{lineCount}][{DateTime.Now}][{project.name}]: {args.Data}";
                 output.Append($"\n{log}");
                 _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
