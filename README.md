@@ -13,7 +13,7 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
 
 ## Features
 
-1. Build Unity executables and hot updates via Slash Command.
+1. Build Unity executables and hot updates via Slash Command and send the feedback to specific channel.
 2. Upload hot updates via SFTP.
 3. Auto SourceControl (git, cm) fetch/pull/reset.
 4. Customize build action via JSON. **(Work in progress)**
@@ -55,6 +55,7 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
       "addressableBuildOutput": "D:\\Unity_Projects\\example\\ServerData",
       "sourceControl": "git",
       "branch": "develop",
+      "notificationChannel": "",
       "deployment": {
         "SftpUploadAction": {
           "LocalPath": "D:\\Unity_Projects\\example\\ServerData",
