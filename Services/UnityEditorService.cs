@@ -127,7 +127,7 @@ public class UnityEditorService : IHostedService
                         }
                         break;
                     
-                    case "NotificationChannel":
+                    case "notificationChannel":
                         model.notificationChannel = kvp.Value;
                         break;
                 }
