@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
@@ -30,6 +31,12 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         return RespondAsync("Message sent!");
     }
 
+    [SlashCommand("show-channel-id", "Show a channel's id.")]
+    public Task ShowChannelId(SocketTextChannel channel)
+    {
+        return RespondAsync($"This channel id is {channel.Id}", ephemeral:true);
+    }
+
     [SlashCommand("about", "Print the introduction of this bot.")]
     public Task About()
     {
@@ -54,11 +61,48 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
 
+    #region 通知类
+    /// <summary>
+    /// 向预设好的频道发送信息
+    /// </summary>
+    /// <param name="message"></param>
     public static async Task Notification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
                 ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel
             channel) return;
+
+        await channel.SendMessageAsync(message);
+    }
+
+    /// <summary>
+    /// 向用户自定义的频道发送信息
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="channelId"></param>
+    public static async Task Notification(string message, ulong channelId)
+    {
+        if (await DiscordStartupService.Discord.GetChannelAsync(channelId) is not IMessageChannel channel) 
+            return;
+
+        await channel.SendMessageAsync(message);
+    }
+
+    public static async Task Notification(string message, UnityProjectModel project)
+    {
+        if (string.IsNullOrWhiteSpace(project.notificationChannel))
+        {
+            await Notification(message);
+            return;
+        }
+        
+        if (await DiscordStartupService.Discord.GetChannelAsync(ulong.Parse(project.notificationChannel)) is not
+            IMessageChannel channel)
+        {
+            // 若没有配置或者无效，则fallback到默认的频道
+            await Notification(message);
+            return;
+        }
 
         await channel.SendMessageAsync(message);
     }
@@ -71,7 +115,9 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
 
         await channel.SendMessageAsync(message);
     }
-
+    #endregion
+    
+    #region 打包指令
     [SlashCommand("build-player", "Build a game executable.")]
     public Task BuildPlayer(string projectName, string targetPlatform)
     {
@@ -92,12 +138,15 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} build completed!");
+                await Notification($"**{project}** {targetPlatform} build completed!", project);
             else
                 await Notification(
-                    $"**{project}** {targetPlatform} build failed! \n\n{t.Result.Message}");
+                    $"**{project}** {targetPlatform} build failed! \n\n{t.Result.Message}", project);
         });
-        return RespondAsync($"**{project}** {targetPlatform} build started!");
+        
+        var respondMsg = $"**{project}** {targetPlatform} build started!";
+        Notification(respondMsg, project);
+        return RespondAsync(respondMsg);
     }
 
     [SlashCommand("build-hot-update", "Build a hot update.")]
@@ -120,11 +169,15 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} hot update build completed!");
+                await Notification($"**{project}** {targetPlatform} hot update build completed!", project);
             else
                 await Notification(
-                    $"**{project}** {targetPlatform} hot update build failed! \n\n{t.Result.Message}");
+                    $"**{project}** {targetPlatform} hot update build failed! \n\n{t.Result.Message}", project);
         });
-        return RespondAsync($"**{project}** {targetPlatform} hot update build started!");
+
+        var respondMsg = $"**{project}** {targetPlatform} hot update build started!";
+        Notification(respondMsg, project);
+        return RespondAsync(respondMsg);
     }
+    #endregion
 }
