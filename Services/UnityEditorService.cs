@@ -126,6 +126,10 @@ public class UnityEditorService : IHostedService
                             }
                         }
                         break;
+                    
+                    case "NotificationChannel":
+                        model.notificationChannel = kvp.Value;
+                        break;
                 }
 
                 // 注册版本控制服务
@@ -324,7 +328,7 @@ public class UnityEditorService : IHostedService
             $"[{GetType()}] Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
-        await DiscordInteractionModule.Notification(buildStartLog);
+        await DiscordInteractionModule.Notification(buildStartLog, project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -333,7 +337,7 @@ public class UnityEditorService : IHostedService
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
-        await DiscordInteractionModule.Notification(buildExitLog);
+        await DiscordInteractionModule.Notification(buildExitLog, project);
         var logPath = $"logs/{projectName}_{targetPlatform}_PlayerBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
@@ -430,7 +434,7 @@ public class UnityEditorService : IHostedService
             $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
-        await DiscordInteractionModule.Notification(buildStartLog);
+        await DiscordInteractionModule.Notification(buildStartLog, project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -439,7 +443,7 @@ public class UnityEditorService : IHostedService
             $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
-        await DiscordInteractionModule.Notification(buildExitLog);
+        await DiscordInteractionModule.Notification(buildExitLog, project);
         var logPath = $"logs/{projectName}_{targetPlatform}_HotUpdateBuild_{timestamp}.log";
         var logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         if (!Directory.Exists(logFolder)) Directory.CreateDirectory(logFolder);
@@ -512,8 +516,8 @@ public class UnityEditorService : IHostedService
             };
         }
         
-        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Start executing deployment for {project.name}");
-        DiscordInteractionModule.Notification($"Start executing deployment for {project.name}.");
+        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Start executing deployment for {project.name}.");
+        DiscordInteractionModule.Notification($"Start executing deployment for {project.name}.", project);
 
         for (int i = 0; i < project.deployment.Count; i++)
         {
@@ -527,8 +531,8 @@ public class UnityEditorService : IHostedService
             }
         }
         
-        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Finished for {project.name}");
-        DiscordInteractionModule.Notification($"Finished executing deployment for {project.name}.");
+        _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Finished for {project.name}.");
+        DiscordInteractionModule.Notification($"Finished executing deployment for {project.name}.", project);
 
         return new ResultMsg()
         {
