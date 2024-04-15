@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
+using SimpleJSON;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Utilities;
@@ -12,6 +13,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     private readonly ILogger<SshCredentialService> _logger;
     private readonly CancellationTokenSource _loginCancellationTokenSource = new();
     private SshClient? _client;
+    public readonly Dictionary<SshProfileModel, SshClient?> Clients = new Dictionary<SshProfileModel, SshClient?>();
 
     private List<string>? _expectedFingerprints;
 
@@ -124,18 +126,63 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var node = ConfigurationUtility.Configuration["Ssh"];
-        _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
-        for (var i = 0; i < node["expectedFingerprints"].Count; i++)
-        {
-            _expectedFingerprints.Add(node["expectedFingerprints"][i]);
-            _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
-        }
+        
+        // _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
+        // for (var i = 0; i < node["expectedFingerprints"].Count; i++)
+        // {
+        //     _expectedFingerprints.Add(node["expectedFingerprints"][i]);
+        //     _logger.LogInformation(
+        //         $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
+        // }
+        //
+        // CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
+        //     new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
+        //     new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
+        // Instance = this;
 
-        CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
-            new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
-            new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
-        Instance = this;
+        foreach (JSONNode ssh in node.AsArray)
+        {
+            var profile = new SshProfileModel();
+            foreach (var kvp in ssh)
+            {
+                switch (kvp.Key)
+                {
+                    case "address":
+                        profile.address = kvp.Value;
+                        break;
+                    
+                    case "user":
+                        profile.user = kvp.Value;
+                        break;
+                    
+                    case "password":
+                        profile.password = kvp.Value;
+                        break;
+                    
+                    case "privateKeyPath":
+                        profile.privateKeyPath = kvp.Value;
+                        break;
+                    
+                    case "keepAliveInterval":
+                        profile.keepAliveInterval = kvp.Value;
+                        break;
+                    
+                    case "expectedFingerprints":
+                        profile.expectedFingerprints = new List<string>();
+                        foreach (var fingerprint in kvp.Value.AsArray)
+                        {
+                            profile.expectedFingerprints.Add(fingerprint.Key);
+                        }
+                        break;
+                    
+                    default:
+                        _logger.LogWarning($"[{GetType()}.StartAsync] Unknown property! {kvp.Key}:{kvp.Value}.");
+                        break;
+                }
+            }
+            Clients.Add(profile, null);
+            _logger.LogInformation($"[{GetType()}.StartAsync] Profile {profile.address}(user: {profile.user}) added!");
+        }
 
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
