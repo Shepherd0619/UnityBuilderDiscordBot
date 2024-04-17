@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.IO.Compression;
 using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -26,6 +25,8 @@ public class UnityEditorService : IHostedService
 
     public Dictionary<string, string> EditorInstallations;
     public List<UnityProjectModel> UnityProjects;
+
+    private readonly LoggerFactory _loggerFactory = new();
 
     public UnityEditorService(ILogger<UnityEditorService> logger)
     {
@@ -130,6 +131,12 @@ public class UnityEditorService : IHostedService
                     case "notificationChannel":
                         model.notificationChannel = kvp.Value;
                         break;
+                    
+                    case "ssh":
+                        model.ssh = kvp.Value;
+                        CredentialServiceManager.Instance.RegisterSshCredentialService(model.ssh);
+                        FileTransferServiceManager.Instance.RegisterSftpFileTransferService(model.ssh);
+                        break;
                 }
 
                 // 注册版本控制服务
@@ -139,14 +146,16 @@ public class UnityEditorService : IHostedService
                         case "git":
                             RegisteredSourceControlServices.Add(new GitSourceControlService
                             {
-                                Project = model
+                                Project = model,
+                                Logger = _loggerFactory.CreateLogger<GitSourceControlService>()
                             });
                             break;
 
                         case "cm":
                             RegisteredSourceControlServices.Add(new PlasticSCMSourceControlService
                             {
-                                Project = model
+                                Project = model,
+                                Logger = _loggerFactory.CreateLogger<PlasticSCMSourceControlService>()
                             });
                             break;
 

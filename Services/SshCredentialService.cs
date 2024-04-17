@@ -1,13 +1,14 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
+using SimpleJSON;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Utilities;
 
 namespace UnityBuilderDiscordBot.Services;
 
-public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedService
+public class SshCredentialService : ICredentialService<ConnectionInfo>
 {
     private readonly ILogger<SshCredentialService> _logger;
     private readonly CancellationTokenSource _loginCancellationTokenSource = new();
@@ -15,12 +16,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
     private List<string>? _expectedFingerprints;
 
-    public SshCredentialService(ILogger<SshCredentialService> logger)
+    public SshCredentialService(ILogger<SshCredentialService> logger, JSONNode node)
     {
         _logger = logger;
+        StartAsync(CancellationToken.None, node);
     }
-
-    public static SshCredentialService Instance { get; private set; }
 
     public async Task<ResultMsg> Login()
     {
@@ -121,9 +121,9 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
 
     public ConnectionInfo? CredentialInfo { get; set; }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken, JSONNode node)
     {
-        var node = ConfigurationUtility.Configuration["Ssh"];
+        // var node = ConfigurationUtility.Configuration["Ssh"];
         _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
         for (var i = 0; i < node["expectedFingerprints"].Count; i++)
         {
@@ -131,11 +131,10 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>, IHostedS
             _logger.LogInformation(
                 $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
         }
-
+        
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
-        Instance = this;
 
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");

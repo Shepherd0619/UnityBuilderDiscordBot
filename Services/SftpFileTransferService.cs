@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
+using SimpleJSON;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 
 namespace UnityBuilderDiscordBot.Services;
 
-public class SftpFileTransferService : IHostedService, IFileTransferService<ConnectionInfo>
+public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
 {
     private readonly Dictionary<string, IAsyncResult> _downloadAsyncResults = new();
 
@@ -15,15 +16,16 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
     private readonly Dictionary<string, IAsyncResult> _uploadAsyncResults = new();
 
     private SftpClient? _client;
+    
+    private List<string>? _expectedFingerprints;
 
-    public SftpFileTransferService(ILogger<SftpFileTransferService> logger)
+    public ConnectionInfo? CredentialInfo { get; set; }
+    
+    public SftpFileTransferService(ILogger<SftpFileTransferService> logger, JSONNode node)
     {
         _logger = logger;
+        StartAsync(CancellationToken.None, node);
     }
-
-    public static SftpFileTransferService Instance { get; private set; }
-
-    public IFileTransferService<ConnectionInfo>.ConnectionInfoStruct? ConnectionInfo { get; set; }
 
     public async Task<ResultMsg> UploadFile(string path, string remotePath)
     {
@@ -76,10 +78,21 @@ public class SftpFileTransferService : IHostedService, IFileTransferService<Conn
         _uploadAsyncResults.Clear();
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken, JSONNode node)
     {
-        _client = new SftpClient(SshCredentialService.Instance.CredentialInfo);
-        Instance = this;
+        _expectedFingerprints = new List<string>(node["expectedFingerprints"].Count);
+        for (var i = 0; i < node["expectedFingerprints"].Count; i++)
+        {
+            _expectedFingerprints.Add(node["expectedFingerprints"][i]);
+            _logger.LogInformation(
+                $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
+        }
+        
+        CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
+            new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
+            new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
+        
+        _client = new SftpClient(CredentialInfo);
 
         await _client.ConnectAsync(cancellationToken);
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
