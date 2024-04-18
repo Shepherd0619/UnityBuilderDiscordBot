@@ -26,7 +26,10 @@ public class UnityEditorService : IHostedService
     public Dictionary<string, string> EditorInstallations;
     public List<UnityProjectModel> UnityProjects;
 
-    private readonly LoggerFactory _loggerFactory = new();
+    private readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder =>
+    {
+        builder.AddConsole(); // 添加Console输出提供程序
+    });
 
     public UnityEditorService(ILogger<UnityEditorService> logger)
     {
