@@ -86,17 +86,17 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
             await _client.ConnectAsync(_loginCancellationTokenSource.Token);
             if (needSudo)
             {
-                _logger.LogWarning($"[{GetType()}.Login] sudo needed! Now execute \"sudo su\".");
-                var sudoResult = await RunCommand("sudo su");
-
-                if (!sudoResult.Success)
-                {
-                    _logger.LogError($"[{GetType()}.Login] \"sudo su\" failed! {sudoResult.Message}");
-                }
-                else
-                {
-                    _logger.LogInformation($"[{GetType()}.Login] \"sudo su\" success!");
-                }
+                _logger.LogWarning($"[{GetType()}.Login] sudo needed!");
+                // var sudoResult = await RunCommand("sudo su");
+                //
+                // if (!sudoResult.Success)
+                // {
+                //     _logger.LogError($"[{GetType()}.Login] \"sudo su\" failed! {sudoResult.Message}");
+                // }
+                // else
+                // {
+                //     _logger.LogInformation($"[{GetType()}.Login] \"sudo su\" success!");
+                // }
             }
             result.Success = true;
             result.Message = string.Empty;
@@ -171,6 +171,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
 
     public async Task<ResultMsg> RunCommand(string command)
     {
+        if (needSudo)
+        {
+            command = $"sudo {command}";
+        }
+        
         var result = new ResultMsg();
         var sshCommand = _client.CreateCommand(command);
         try
