@@ -36,7 +36,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         {
             result.Success = false;
             result.Message = "CredentialInfo is null.";
-            _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] ERROR! {result.Message}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] ERROR! {result.Message}");
             return result;
         }
 
@@ -50,11 +51,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         _client.HostKeyReceived += (sender, args) =>
         {
             _logger.LogWarning(
-                $"[{DateTime.Now}][{GetType()}.Login] Host Key received! \nHost fingerprint SHA256: {args.FingerPrintSHA256}");
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] Host Key received! \nHost fingerprint SHA256: {args.FingerPrintSHA256}");
             if (_expectedFingerprints == null || _expectedFingerprints.Count <= 0)
             {
                 _logger.LogError(
-                    $"[{DateTime.Now}][{GetType()}.Login] expectedFingerprints not defined! Abort the login");
+                    $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] expectedFingerprints not defined! Abort the login");
                 args.CanTrust = false;
                 _client.Disconnect();
                 result.Success = false;
@@ -67,7 +68,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         };
         _client.ErrorOccurred += (sender, args) =>
         {
-            _logger.LogError($"[{DateTime.Now}][{GetType()}] SshClient ErrorOccurred! {args.Exception}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}] SshClient ErrorOccurred! {args.Exception}");
         };
 
         // 保持SSH会话
@@ -98,13 +100,15 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
                 //     _logger.LogInformation($"[{GetType()}.Login] \"sudo su\" success!");
                 // }
             }
+
             result.Success = true;
             result.Message = string.Empty;
             tcs.SetResult(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] Error when SshClient connect!\n{ex}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] Error when SshClient connect!\n{ex}");
             result.Success = false;
             result.Message = $"SshClient error! {ex}";
             tcs.SetResult(result);
@@ -112,9 +116,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
 
         var success = await tcs.Task;
         if (success.Success)
-            _logger.LogInformation($"[{DateTime.Now}][{GetType()}.Login] Login success!");
+            _logger.LogInformation(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] Login success!");
         else
-            _logger.LogError($"[{DateTime.Now}][{GetType()}.Login] login failed! {result.Message}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Login] login failed! {result.Message}");
 
         return success;
     }
@@ -152,7 +158,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
             _logger.LogInformation(
                 $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
         }
-        
+
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
@@ -160,13 +166,15 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         needSudo = node["needSudo"];
 
         await Login();
-        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
+        _logger.LogInformation(
+            $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.StartAsync] Initialized!");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await Logout();
-        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
+        _logger.LogInformation(
+            $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.StopAsync] Stopped!");
     }
 
     public async Task<ResultMsg> RunCommand(string command)
@@ -175,7 +183,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         {
             command = $"sudo {command}";
         }
-        
+
         var result = new ResultMsg();
         var sshCommand = _client.CreateCommand(command);
         try
@@ -184,7 +192,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         }
         catch (Exception ex)
         {
-            _logger.LogError($"[{DateTime.Now}][{GetType()}] Error when executing {command}! {ex}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}] Error when executing {command}! {ex}");
             result.Message = ex.ToString();
             result.Success = false;
         }

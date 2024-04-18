@@ -16,11 +16,11 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
     private readonly Dictionary<string, IAsyncResult> _uploadAsyncResults = new();
 
     private SftpClient? _client;
-    
+
     private List<string>? _expectedFingerprints;
 
     public ConnectionInfo? CredentialInfo { get; set; }
-    
+
     public SftpFileTransferService(ILogger<SftpFileTransferService> logger, JSONNode node)
     {
         _logger = logger;
@@ -35,11 +35,11 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
         if (isFile)
         {
             _logger.LogInformation(
-                $"[{DateTime.Now}][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path}) to {remotePath}");
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Upload] Start uploading file {Path.GetFileName(path)}({path}) to {remotePath}");
             if (_uploadAsyncResults.ContainsKey(remotePath))
             {
                 _logger.LogWarning(
-                    $"[{DateTime.Now}][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading!");
+                    $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Upload] File {Path.GetFileName(path)}({path}) is already uploading!");
                 result.Success = false;
                 result.Message = "Upload in progress";
                 return result;
@@ -48,11 +48,12 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             // 默认直接覆盖远端文件
             FileStream input = File.OpenRead(path);
             result = await UploadFileAsync(input, remotePath, true);
-            
+
             return result;
         }
 
-        _logger.LogError($"[{DateTime.Now}][{GetType()}.Upload] Invalid path: {path}.");
+        _logger.LogError(
+            $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.Upload] Invalid path: {path}.");
         result.Success = false;
         result.Message = "Invalid path";
 
@@ -87,15 +88,16 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             _logger.LogInformation(
                 $"[{DateTime.Now}][{GetType()}] SHA256 fingerprint {node["expectedFingerprints"][i]} added!");
         }
-        
+
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
-        
+
         _client = new SftpClient(CredentialInfo);
 
         await _client.ConnectAsync(cancellationToken);
-        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
+        _logger.LogInformation(
+            $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.StartAsync] Initialized!");
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -104,7 +106,8 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
         CancelAllDownload();
         _client.Disconnect();
         _client.Dispose();
-        _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StopAsync] Stopped!");
+        _logger.LogInformation(
+            $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.StopAsync] Stopped!");
         return Task.CompletedTask;
     }
 
@@ -130,7 +133,8 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
         catch (Exception ex)
         {
             // 处理可能出现的异常
-            _logger.LogError($"[{DateTime.Now}][{GetType()}.UploadFileAsync] ERROR! {ex}");
+            _logger.LogError(
+                $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.UploadFileAsync] ERROR! {ex}");
             resultMsg.Success = false;
             resultMsg.Message = ex.ToString();
             _uploadAsyncResults.Remove(path);
