@@ -8,7 +8,10 @@ public class FileTransferServiceManager : IHostedService
 {
     private ILogger<FileTransferServiceManager> _logger;
     public readonly Dictionary<JSONNode, SftpFileTransferService> RegisteredSftpFileTransferServices = new();
-    private readonly LoggerFactory _loggerFactory = new();
+    private readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder =>
+    {
+        builder.AddConsole(); // 添加Console输出提供程序
+    });
 
     public static FileTransferServiceManager Instance;
 

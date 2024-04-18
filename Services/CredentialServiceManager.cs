@@ -8,7 +8,10 @@ public class CredentialServiceManager : IHostedService
 {
     private ILogger<CredentialServiceManager> _logger;
     public readonly Dictionary<JSONNode, SshCredentialService> RegisteredSshCredentialServices = new();
-    private readonly LoggerFactory _loggerFactory = new();
+    private readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder =>
+    {
+        builder.AddConsole(); // 添加Console输出提供程序
+    });
 
     public static CredentialServiceManager Instance;
 
