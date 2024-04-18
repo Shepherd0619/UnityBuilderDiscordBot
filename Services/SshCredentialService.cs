@@ -16,6 +16,13 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
 
     private List<string>? _expectedFingerprints;
 
+    /// <summary>
+    /// 此处会影响命令执行的角色。
+    /// 若为true，则会在登录的时候执行sudo su来以root身份执行，
+    /// 否则则以当前账号身份执行。
+    /// </summary>
+    private bool needSudo = false;
+
     public SshCredentialService(ILogger<SshCredentialService> logger, JSONNode node)
     {
         _logger = logger;
@@ -77,6 +84,20 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         try
         {
             await _client.ConnectAsync(_loginCancellationTokenSource.Token);
+            if (needSudo)
+            {
+                _logger.LogWarning($"[{GetType()}.Login] sudo needed! Now execute \"sudo su\".");
+                var sudoResult = await RunCommand("sudo su");
+
+                if (!sudoResult.Success)
+                {
+                    _logger.LogError($"[{GetType()}.Login] \"sudo su\" failed! {sudoResult.Message}");
+                }
+                else
+                {
+                    _logger.LogInformation($"[{GetType()}.Login] \"sudo su\" success!");
+                }
+            }
             result.Success = true;
             result.Message = string.Empty;
             tcs.SetResult(result);
@@ -135,6 +156,8 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
         CredentialInfo = new ConnectionInfo(node["address"].Value, node["user"].Value,
             new PasswordAuthenticationMethod(node["user"].Value, node["password"].Value),
             new PrivateKeyAuthenticationMethod(node["user"].Value, new PrivateKeyFile(node["privateKeyPath"].Value)));
+
+        needSudo = node["needSudo"];
 
         await Login();
         _logger.LogInformation($"[{DateTime.Now}][{GetType()}.StartAsync] Initialized!");
