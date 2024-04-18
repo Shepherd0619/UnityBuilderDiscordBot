@@ -66,7 +66,8 @@ internal class Program
                 services.AddHostedService<DiscordStartupService>(); // Add the discord startup service
                 // services.AddHostedService<SshCredentialService>(); // Add the SSH 
                 services.AddHostedService<CredentialServiceManager>();
-                services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
+                // services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
+                services.AddHostedService<FileTransferServiceManager>();
             });
 
         await hostBuilder.RunConsoleAsync();

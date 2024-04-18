@@ -530,7 +530,7 @@ public class UnityEditorService : IHostedService
 
         for (int i = 0; i < project.deployment.Count; i++)
         {
-            var result = await project.deployment[i].Invoke();
+            var result = await project.deployment[i].Invoke(project);
 
             if (!result.Success)
             {

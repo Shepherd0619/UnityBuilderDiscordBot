@@ -41,6 +41,7 @@ public class CredentialServiceManager : IHostedService
     public bool RegisterSshCredentialService(JSONNode node)
     {
         var logger = _loggerFactory.CreateLogger<SshCredentialService>();
+        _logger.LogInformation($"[{GetType()}] {node["address"]}({node["user"]}) registered!");
         return RegisteredSshCredentialServices.TryAdd(node, new SshCredentialService(logger, node));
     }
 
@@ -53,5 +54,6 @@ public class CredentialServiceManager : IHostedService
         if (!RegisteredSshCredentialServices.TryGetValue(node, out var service)) return;
         service.StopAsync(CancellationToken.None);
         RegisteredSshCredentialServices.Remove(node);
+        _logger.LogInformation($"[{GetType()}] {node["address"]}({node["user"]}) removed!");
     }
 }

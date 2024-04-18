@@ -28,7 +28,7 @@ public class FileTransferServiceManager : IHostedService
     {
         foreach (var kvp in RegisteredSftpFileTransferServices)
         {
-            
+            RemoveSftpFileTransferService(kvp.Key);
         }
         return Task.CompletedTask;
     }
@@ -41,6 +41,7 @@ public class FileTransferServiceManager : IHostedService
     public bool RegisterSftpFileTransferService(JSONNode node)
     {
         var logger = _loggerFactory.CreateLogger<SftpFileTransferService>();
+        _logger.LogInformation($"[{GetType()}] {node["address"]}({node["user"]}) registered!");
         return RegisteredSftpFileTransferServices.TryAdd(node, new SftpFileTransferService(logger, node));
     }
 
@@ -53,5 +54,6 @@ public class FileTransferServiceManager : IHostedService
         if (!RegisteredSftpFileTransferServices.TryGetValue(node, out var service)) return;
         service.StopAsync(CancellationToken.None);
         RegisteredSftpFileTransferServices.Remove(node);
+        _logger.LogInformation($"[{GetType()}] {node["address"]}({node["user"]}) removed!");
     }
 }
