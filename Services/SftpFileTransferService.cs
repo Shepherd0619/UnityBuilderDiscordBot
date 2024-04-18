@@ -24,7 +24,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
     public SftpFileTransferService(ILogger<SftpFileTransferService> logger, JSONNode node)
     {
         _logger = logger;
-        StartAsync(CancellationToken.None, node);
+        _ = StartAsync(CancellationToken.None, node);
     }
 
     public async Task<ResultMsg> UploadFile(string path, string remotePath)
@@ -108,7 +108,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
         return Task.CompletedTask;
     }
 
-    private async Task<ResultMsg> UploadFileAsync(Stream input, string path, bool canOverride)
+    private Task<ResultMsg> UploadFileAsync(Stream input, string path, bool canOverride)
     {
         var resultMsg = new ResultMsg();
         try
@@ -125,7 +125,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             resultMsg.Message = string.Empty;
             _uploadAsyncResults.Remove(path);
             input.Close();
-            return resultMsg;
+            return Task.FromResult(resultMsg);
         }
         catch (Exception ex)
         {
@@ -135,7 +135,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             resultMsg.Message = ex.ToString();
             _uploadAsyncResults.Remove(path);
             input.Close();
-            return resultMsg;
+            return Task.FromResult(resultMsg);
         }
     }
 }

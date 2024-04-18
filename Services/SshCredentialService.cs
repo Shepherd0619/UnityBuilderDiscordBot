@@ -19,7 +19,7 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
     public SshCredentialService(ILogger<SshCredentialService> logger, JSONNode node)
     {
         _logger = logger;
-        StartAsync(CancellationToken.None, node);
+        _ = StartAsync(CancellationToken.None, node);
     }
 
     public async Task<ResultMsg> Login()
