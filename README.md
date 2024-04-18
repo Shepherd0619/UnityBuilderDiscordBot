@@ -56,6 +56,14 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
       "sourceControl": "git",
       "branch": "develop",
       "notificationChannel": "",
+      "ssh": {
+        "address": "",
+        "user": "",
+        "password": "",
+        "privateKeyPath": "",
+        "keepAliveInterval": "-1",
+        "expectedFingerprints": []
+      },
       "deployment": {
         "SftpUploadAction": {
           "LocalPath": "D:\\Unity_Projects\\example\\ServerData",
@@ -63,15 +71,7 @@ For the hot update part, please refer to [JenkinsBuildUnity](https://github.com/
         }
       }
     }
-  ],
-  "Ssh": {
-    "address": "",
-    "user": "",
-    "password": "",
-    "privateKeyPath": "",
-    "keepAliveInterval": "-1",
-    "expectedFingerprints": []
-  }
+  ]
 }
 ```
 

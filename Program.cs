@@ -61,11 +61,15 @@ internal class Program
                     return new DiscordSocketClient(config);
                 }); // Add the discord client to services
                 services.AddSingleton<InteractionService>(); // Add the interaction service to services
+                services.AddHostedService<CredentialServiceManager>();
+                services.AddHostedService<FileTransferServiceManager>();
                 services.AddHostedService<UnityEditorService>(); // Add the Unity Editor service
                 services.AddHostedService<InteractionHandlingService>(); // Add the slash command handler
                 services.AddHostedService<DiscordStartupService>(); // Add the discord startup service
-                services.AddHostedService<SshCredentialService>(); // Add the SSH 
-                services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
+                // services.AddHostedService<SshCredentialService>(); // Add the SSH 
+                
+                // services.AddHostedService<SftpFileTransferService>(); // Add the SFTP
+                
             });
 
         await hostBuilder.RunConsoleAsync();

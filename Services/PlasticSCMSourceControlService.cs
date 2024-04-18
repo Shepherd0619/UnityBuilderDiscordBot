@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 
@@ -12,7 +13,9 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
 
     public string CurrentCommit { get; set; }
 
-    public Process RunningProcess { get; set; }
+    public Process? RunningProcess { get; set; }
+    
+    public ILogger<PlasticSCMSourceControlService> Logger { get; set; }
 
     public async Task<ResultMsg> Checkout(string branch)
     {
@@ -28,7 +31,10 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         CurrentBranch = branch;
@@ -53,7 +59,10 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         return new ResultMsg
