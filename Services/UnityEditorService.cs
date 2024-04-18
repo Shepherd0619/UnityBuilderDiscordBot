@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.IO.Compression;
 using System.Text;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -26,6 +25,11 @@ public class UnityEditorService : IHostedService
 
     public Dictionary<string, string> EditorInstallations;
     public List<UnityProjectModel> UnityProjects;
+
+    private readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(builder =>
+    {
+        builder.AddConsole(); // 添加Console输出提供程序
+    });
 
     public UnityEditorService(ILogger<UnityEditorService> logger)
     {
@@ -130,6 +134,12 @@ public class UnityEditorService : IHostedService
                     case "notificationChannel":
                         model.notificationChannel = kvp.Value;
                         break;
+                    
+                    case "ssh":
+                        model.ssh = kvp.Value;
+                        CredentialServiceManager.Instance.RegisterSshCredentialService(model.ssh);
+                        FileTransferServiceManager.Instance.RegisterSftpFileTransferService(model.ssh);
+                        break;
                 }
 
                 // 注册版本控制服务
@@ -139,14 +149,16 @@ public class UnityEditorService : IHostedService
                         case "git":
                             RegisteredSourceControlServices.Add(new GitSourceControlService
                             {
-                                Project = model
+                                Project = model,
+                                Logger = _loggerFactory.CreateLogger<GitSourceControlService>()
                             });
                             break;
 
                         case "cm":
                             RegisteredSourceControlServices.Add(new PlasticSCMSourceControlService
                             {
-                                Project = model
+                                Project = model,
+                                Logger = _loggerFactory.CreateLogger<PlasticSCMSourceControlService>()
                             });
                             break;
 
@@ -307,7 +319,7 @@ public class UnityEditorService : IHostedService
             if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
-                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                var log = $"[{lineCount}][{DateTime.Now}][{project.name}]: {args.Data}";
                 output.Append($"\n{log}");
                 _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
@@ -413,7 +425,7 @@ public class UnityEditorService : IHostedService
             if (!string.IsNullOrEmpty(args.Data))
             {
                 lineCount++;
-                var log = $"[{lineCount}][{DateTime.Now}]: {args.Data}";
+                var log = $"[{lineCount}][{DateTime.Now}][{project.name}]: {args.Data}";
                 output.Append($"\n{log}");
                 _logger.LogInformation(log);
                 DiscordInteractionModule.LogNotification(log);
@@ -521,7 +533,7 @@ public class UnityEditorService : IHostedService
 
         for (int i = 0; i < project.deployment.Count; i++)
         {
-            var result = await project.deployment[i].Invoke();
+            var result = await project.deployment[i].Invoke(project);
 
             if (!result.Success)
             {

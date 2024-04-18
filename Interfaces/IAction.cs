@@ -4,5 +4,5 @@ namespace UnityBuilderDiscordBot.Interfaces;
 
 public interface IAction
 {
-    public Task<ResultMsg> Invoke();
+    public Task<ResultMsg> Invoke(UnityProjectModel project);
 }

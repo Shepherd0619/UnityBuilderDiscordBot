@@ -11,7 +11,7 @@ public interface ISourceControlService<T>
 
     public string CurrentCommit { get; set; }
 
-    public Process RunningProcess { get; set; }
+    public Process? RunningProcess { get; set; }
 
     public Task<ResultMsg> Checkout(string branch);
 

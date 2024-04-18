@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
 
@@ -12,7 +13,9 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
 
     public string CurrentCommit { get; set; }
 
-    public Process RunningProcess { get; set; }
+    public Process? RunningProcess { get; set; }
+
+    public ILogger<GitSourceControlService> Logger { get; set; }
 
     public async Task<ResultMsg> Checkout(string branch)
     {
@@ -28,7 +31,10 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         if (RunningProcess.ExitCode != 0)
@@ -47,7 +53,9 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        output += await RunningProcess.StandardOutput.ReadToEndAsync();
+        message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         CurrentBranch = branch;
@@ -67,7 +75,9 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        output += await RunningProcess.StandardOutput.ReadToEndAsync();
+        message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         return new ResultMsg
@@ -90,7 +100,10 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.RedirectStandardOutput = true;
         RunningProcess.Start();
 
-        var output = await RunningProcess.StandardOutput.ReadToEndAsync();
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
         return new ResultMsg
