@@ -104,15 +104,20 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
     {
         CancelAllUpload();
         CancelAllDownload();
-        _client.Disconnect();
-        _client.Dispose();
+        _client?.Disconnect();
+        _client?.Dispose();
         _logger.LogInformation(
             $"[{DateTime.Now}][{CredentialInfo?.Host}:{CredentialInfo?.Port}({CredentialInfo?.Username})][{GetType()}.StopAsync] Stopped!");
         return Task.CompletedTask;
     }
 
-    private Task<ResultMsg> UploadFileAsync(Stream input, string path, bool canOverride)
+    private async Task<ResultMsg> UploadFileAsync(Stream input, string path, bool canOverride)
     {
+        if (!_client.IsConnected)
+        {
+            await _client.ConnectAsync(CancellationToken.None);
+        }
+        
         var resultMsg = new ResultMsg();
         try
         {
@@ -128,7 +133,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             resultMsg.Message = string.Empty;
             _uploadAsyncResults.Remove(path);
             input.Close();
-            return Task.FromResult(resultMsg);
+            return resultMsg;
         }
         catch (Exception ex)
         {
@@ -139,7 +144,7 @@ public class SftpFileTransferService : IFileTransferService<ConnectionInfo>
             resultMsg.Message = ex.ToString();
             _uploadAsyncResults.Remove(path);
             input.Close();
-            return Task.FromResult(resultMsg);
+            return resultMsg;
         }
     }
 }
