@@ -179,6 +179,11 @@ public class SshCredentialService : ICredentialService<ConnectionInfo>
 
     public async Task<ResultMsg> RunCommand(string command)
     {
+        if (!_client.IsConnected)
+        {
+            await _client.ConnectAsync(_loginCancellationTokenSource.Token);
+        }
+        
         if (needSudo)
         {
             command = $"sudo {command}";
