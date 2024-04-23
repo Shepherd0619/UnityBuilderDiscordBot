@@ -248,6 +248,36 @@ public class UnityEditorService : IHostedService
         return result;
     }
 
+    public async Task<string> TryGetCurrentCommit(UnityProjectModel project)
+    {
+        var sourceControl =
+            RegisteredSourceControlServices.Find(search => search.Project == project);
+
+        if (sourceControl == null)
+        {
+            _logger.LogWarning($"[{GetType()}.TryCheckout] No SourceControlService found for {project.name}.");
+            return string.Empty;
+        }
+
+        var result = await sourceControl.GetCurrentCommit();
+        try
+        {
+            if (result.Success)
+            {
+                return result.Message;
+            }
+            else
+            {
+                return string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            // ignored
+            return string.Empty;
+        }
+    }
+
     public async Task<ResultMsg> BuildPlayer(string projectName, TargetPlatform targetPlatform)
     {
         var result = PrepareEditorProcess(projectName, out var project, out var editor, out var process);
@@ -255,6 +285,10 @@ public class UnityEditorService : IHostedService
 
         result = await TryCheckout(project);
         if (!result.Success) return result;
+
+        var currentCommit = await TryGetCurrentCommit(project);
+        if(!string.IsNullOrWhiteSpace(currentCommit))
+            DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -384,6 +418,10 @@ public class UnityEditorService : IHostedService
 
         result = await TryCheckout(project);
         if (!result.Success) return result;
+        
+        var currentCommit = await TryGetCurrentCommit(project);
+        if(!string.IsNullOrWhiteSpace(currentCommit))
+            DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
