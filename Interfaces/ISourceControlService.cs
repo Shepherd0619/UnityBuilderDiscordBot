@@ -16,4 +16,8 @@ public interface ISourceControlService<T>
     public Task<ResultMsg> Checkout(string branch);
 
     public Task<ResultMsg> Reset(bool hard);
+
+    public Task<ResultMsg> GetCurrentCommit();
+
+    public Task<ResultMsg> GetCurrentBranch();
 }

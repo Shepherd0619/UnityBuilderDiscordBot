@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
@@ -29,6 +30,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess.StartInfo.Arguments = $"switchtobranch {branch}";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         var message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -57,6 +59,7 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
         RunningProcess.StartInfo.Arguments = "undo -r";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         var message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -70,5 +73,15 @@ public class PlasticSCMSourceControlService : ISourceControlService<UnityProject
             Success = RunningProcess.ExitCode == 0,
             Message = output
         };
+    }
+
+    public Task<ResultMsg> GetCurrentCommit()
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<ResultMsg> GetCurrentBranch()
+    {
+        throw new NotImplementedException();
     }
 }

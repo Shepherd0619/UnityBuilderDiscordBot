@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using UnityBuilderDiscordBot.Interfaces;
 using UnityBuilderDiscordBot.Models;
@@ -29,6 +30,7 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.Arguments = "fetch";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         var message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -51,6 +53,7 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.Arguments = $"checkout {branch}";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -73,6 +76,7 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.Arguments = "pull";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -98,6 +102,7 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         RunningProcess.StartInfo.Arguments = $"reset {(hard ? "--hard" : "")}";
         RunningProcess.StartInfo.UseShellExecute = false;
         RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
         RunningProcess.Start();
 
         var message = await RunningProcess.StandardOutput.ReadToEndAsync();
@@ -106,6 +111,60 @@ public class GitSourceControlService : ISourceControlService<UnityProjectModel>
         Logger.LogInformation($"[{GetType()}] {message}");
         await RunningProcess.WaitForExitAsync();
 
+        return new ResultMsg
+        {
+            Success = RunningProcess.ExitCode == 0,
+            Message = output
+        };
+    }
+
+    public async Task<ResultMsg> GetCurrentCommit()
+    {
+        if (RunningProcess != null && !RunningProcess.HasExited)
+            return new ResultMsg { Success = false, Message = "Another process is still running." };
+
+        RunningProcess = new Process();
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
+        RunningProcess.StartInfo.FileName = "git";
+        RunningProcess.StartInfo.Arguments = $"log --oneline --max-count=1";
+        RunningProcess.StartInfo.UseShellExecute = false;
+        RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
+        RunningProcess.Start();
+        
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
+        await RunningProcess.WaitForExitAsync();
+        
+        return new ResultMsg
+        {
+            Success = RunningProcess.ExitCode == 0,
+            Message = output
+        };
+    }
+
+    public async Task<ResultMsg> GetCurrentBranch()
+    {
+        if (RunningProcess != null && !RunningProcess.HasExited)
+            return new ResultMsg { Success = false, Message = "Another process is still running." };
+
+        RunningProcess = new Process();
+        RunningProcess.StartInfo.WorkingDirectory = Project.path;
+        RunningProcess.StartInfo.FileName = "git";
+        RunningProcess.StartInfo.Arguments = $"--show-current";
+        RunningProcess.StartInfo.UseShellExecute = false;
+        RunningProcess.StartInfo.RedirectStandardOutput = true;
+        RunningProcess.StartInfo.StandardOutputEncoding = Encoding.UTF8; // 设置输出流的编码类型为UTF-8
+        RunningProcess.Start();
+        
+        var message = await RunningProcess.StandardOutput.ReadToEndAsync();
+        string output = string.Empty;
+        output += message;
+        Logger.LogInformation($"[{GetType()}] {message}");
+        await RunningProcess.WaitForExitAsync();
+        
         return new ResultMsg
         {
             Success = RunningProcess.ExitCode == 0,
