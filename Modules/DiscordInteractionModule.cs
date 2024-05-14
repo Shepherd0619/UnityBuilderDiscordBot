@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
+using Newtonsoft.Json;
 
 namespace UnityBuilderDiscordBot.Modules;
 
@@ -34,7 +35,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     [SlashCommand("show-channel-id", "Show a channel's id.")]
     public Task ShowChannelId(SocketTextChannel channel)
     {
-        return RespondAsync($"This channel id is {channel.Id}", ephemeral:true);
+        return RespondAsync($"{channel.Name} id is {channel.Id}", ephemeral:true);
     }
 
     [SlashCommand("about", "Print the introduction of this bot.")]
@@ -57,7 +58,23 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         var sb = new StringBuilder();
         sb.Append("```json\n");
         sb.Append(ConfigurationUtility.Configuration.ToString());
-        sb.Append("```");
+        sb.Append("\n```");
+        return RespondAsync(sb.ToString(), ephemeral: true);
+    }
+
+    [SlashCommand("print-project-settings", "Print a specific project's settings from appsettings.json.")]
+    public Task PrintProjectSettings(string name)
+    {
+        var project = UnityEditorService.Instance.UnityProjects.Find(search => search.name == name);
+        if (project == null)
+        {
+            return RespondAsync($"No project called {name}.", ephemeral: true);
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("```json\n");
+        sb.Append(JsonConvert.SerializeObject(project));
+        sb.Append("\n```");
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
 
