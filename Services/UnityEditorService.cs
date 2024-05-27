@@ -287,8 +287,11 @@ public class UnityEditorService : IHostedService
         if (!result.Success) return result;
 
         var currentCommit = await TryGetCurrentCommit(project);
-        if(!string.IsNullOrWhiteSpace(currentCommit))
-            DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
+        if (!string.IsNullOrWhiteSpace(currentCommit)) 
+        { 
+            //DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project); 
+            DiscordInteractionModule.NotificationEmbed("Current Commit", $"{currentCommit}", project);
+        }
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -374,7 +377,8 @@ public class UnityEditorService : IHostedService
             $"[{GetType()}] Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
-        await DiscordInteractionModule.Notification(buildStartLog, project);
+        //await DiscordInteractionModule.Notification(buildStartLog, project);
+        await DiscordInteractionModule.NotificationEmbed($"Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -420,8 +424,11 @@ public class UnityEditorService : IHostedService
         if (!result.Success) return result;
         
         var currentCommit = await TryGetCurrentCommit(project);
-        if(!string.IsNullOrWhiteSpace(currentCommit))
-            DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
+        if (!string.IsNullOrWhiteSpace(currentCommit)) 
+        { 
+            //DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
+            DiscordInteractionModule.NotificationEmbed("Current Commit", $"{currentCommit}", project);
+        }
 
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
@@ -484,7 +491,8 @@ public class UnityEditorService : IHostedService
             $"[{GetType()}] Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}";
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
-        await DiscordInteractionModule.Notification(buildStartLog, project);
+        //await DiscordInteractionModule.Notification(buildStartLog, project);
+        await DiscordInteractionModule.NotificationEmbed($"Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -567,7 +575,7 @@ public class UnityEditorService : IHostedService
         }
         
         _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Start executing deployment for {project.name}.");
-        DiscordInteractionModule.Notification($"Start executing deployment for {project.name}.", project);
+        DiscordInteractionModule.NotificationEmbed($"Start executing deployment for {project.name}.", project);
 
         for (int i = 0; i < project.deployment.Count; i++)
         {
@@ -582,7 +590,7 @@ public class UnityEditorService : IHostedService
         }
         
         _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Finished for {project.name}.");
-        DiscordInteractionModule.Notification($"Finished executing deployment for {project.name}.", project);
+        DiscordInteractionModule.NotificationEmbed($"Finished executing deployment for {project.name}.", project);
 
         return new ResultMsg()
         {

@@ -1,4 +1,5 @@
-﻿using SimpleJSON;
+﻿using Newtonsoft.Json;
+using SimpleJSON;
 using UnityBuilderDiscordBot.Interfaces;
 
 namespace UnityBuilderDiscordBot.Models;
@@ -16,6 +17,7 @@ public class UnityProjectModel
     
     public List<IAction> deployment { get; set; }
     
+    [JsonIgnore]
     public JSONNode ssh { get; set; }
 
     public override string ToString()

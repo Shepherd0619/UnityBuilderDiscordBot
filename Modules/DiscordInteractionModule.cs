@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using UnityBuilderDiscordBot.Models;
 using UnityBuilderDiscordBot.Services;
 using UnityBuilderDiscordBot.Utilities;
+using Newtonsoft.Json;
 
 namespace UnityBuilderDiscordBot.Modules;
 
@@ -34,7 +35,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     [SlashCommand("show-channel-id", "Show a channel's id.")]
     public Task ShowChannelId(SocketTextChannel channel)
     {
-        return RespondAsync($"This channel id is {channel.Id}", ephemeral:true);
+        return RespondAsync($"{channel.Name} id is {channel.Id}", ephemeral:true);
     }
 
     [SlashCommand("about", "Print the introduction of this bot.")]
@@ -57,7 +58,23 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         var sb = new StringBuilder();
         sb.Append("```json\n");
         sb.Append(ConfigurationUtility.Configuration.ToString());
-        sb.Append("```");
+        sb.Append("\n```");
+        return RespondAsync(sb.ToString(), ephemeral: true);
+    }
+
+    [SlashCommand("print-project-settings", "Print a specific project's settings from appsettings.json.")]
+    public Task PrintProjectSettings(string name)
+    {
+        var project = UnityEditorService.Instance.UnityProjects.Find(search => search.name == name);
+        if (project == null)
+        {
+            return RespondAsync($"No project called {name}.", ephemeral: true);
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("```json\n");
+        sb.Append(JsonConvert.SerializeObject(project));
+        sb.Append("\n```");
         return RespondAsync(sb.ToString(), ephemeral: true);
     }
 
@@ -107,6 +124,87 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(message);
     }
 
+    /// <summary>
+    /// 发送Embed样式的通知
+    /// </summary>
+    /// <param name="title"></param>
+    /// <param name="message"></param>
+    /// <param name="project"></param>
+    /// <returns></returns>
+    public static async Task NotificationEmbed(string title, string message, UnityProjectModel project, Color? color = null)
+    {
+        var embed = new EmbedBuilder()
+        {
+            // Embed property can be set within object initializer
+            Title = title,
+            Description = message,
+            Footer = new EmbedFooterBuilder() { Text = $"{project.name} ({project.path})" }
+        };
+
+        embed.Color = color;
+
+        if (string.IsNullOrWhiteSpace(project.notificationChannel))
+        {
+            await Notification(message);
+            return;
+        }
+
+        if (await DiscordStartupService.Discord.GetChannelAsync(ulong.Parse(project.notificationChannel)) is not
+            IMessageChannel channel)
+        {
+            // 若没有配置或者无效，则fallback到默认的频道
+            if (await DiscordStartupService.Discord.GetChannelAsync(
+                ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel
+            fallbackChannel) return;
+
+            await fallbackChannel.SendMessageAsync(embed: embed.Build());
+
+            return;
+        }
+
+        await channel.SendMessageAsync(embed: embed.Build());
+    }
+
+    /// <summary>
+    /// 发送Embed样式的通知（预设标题和颜色）
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="project"></param>
+    /// <param name="notificationCategory"></param>
+    /// <returns></returns>
+    public static async Task NotificationEmbed(string message, UnityProjectModel project, NotificationCategory notificationCategory = NotificationCategory.Default)
+    {
+        string title = string.Empty;
+        Color? color = null;
+
+        switch(notificationCategory) 
+        {
+            case NotificationCategory.Default: 
+                title = "Notification";
+                color = Color.LightGrey;
+                break;
+
+            case NotificationCategory.BuildSuccess:
+                title = "Build Success";
+                color = Color.Green;
+                break;
+
+            case NotificationCategory.BuildFailure:
+                title = "Build Failure";
+                color = Color.Red;
+                break;
+        }
+
+        await NotificationEmbed(title, message, project, color);
+    }
+
+    public enum NotificationCategory
+    {
+        Default,
+        BuildSuccess,
+        BuildFailure,
+    }
+
     public static async Task LogNotification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
@@ -138,14 +236,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} build completed!", project);
+                await NotificationEmbed($"{targetPlatform} build completed!", project, NotificationCategory.BuildSuccess);
             else
-                await Notification(
-                    $"**{project}** {targetPlatform} build failed! \n\n{t.Result.Message}", project);
+                await NotificationEmbed(
+                    $"{targetPlatform} build failed! \n\n{t.Result.Message}", project, NotificationCategory.BuildFailure);
         });
         
-        var respondMsg = $"**{project}** {targetPlatform} build started!";
-        Notification(respondMsg, project);
+        var respondMsg = $"{targetPlatform} build started!";
+        NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
     }
 
@@ -169,14 +267,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} hot update build completed!", project);
+                await NotificationEmbed($"{targetPlatform} hot update build completed!", project, NotificationCategory.BuildSuccess);
             else
-                await Notification(
-                    $"**{project}** {targetPlatform} hot update build failed! \n\n{t.Result.Message}", project);
+                await NotificationEmbed(
+                    $"{targetPlatform} hot update build failed! \n\n{t.Result.Message}", project, NotificationCategory.BuildFailure);
         });
 
-        var respondMsg = $"**{project}** {targetPlatform} hot update build started!";
-        Notification(respondMsg, project);
+        var respondMsg = $"{targetPlatform} hot update build started!";
+        NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
     }
     #endregion
