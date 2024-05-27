@@ -124,6 +124,45 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(message);
     }
 
+    /// <summary>
+    /// 发送Embed样式的通知
+    /// </summary>
+    /// <param name="title"></param>
+    /// <param name="message"></param>
+    /// <param name="project"></param>
+    /// <returns></returns>
+    public static async Task NotificationEmbed(string title, string message, UnityProjectModel project)
+    {
+        var embed = new EmbedBuilder()
+        {
+            // Embed property can be set within object initializer
+            Title = title,
+            Description = message,
+            Footer = new EmbedFooterBuilder() { Text = $"{project.name}({project.path})" }
+        };
+
+        if (string.IsNullOrWhiteSpace(project.notificationChannel))
+        {
+            await Notification(message);
+            return;
+        }
+
+        if (await DiscordStartupService.Discord.GetChannelAsync(ulong.Parse(project.notificationChannel)) is not
+            IMessageChannel channel)
+        {
+            // 若没有配置或者无效，则fallback到默认的频道
+            if (await DiscordStartupService.Discord.GetChannelAsync(
+                ConfigurationUtility.Configuration["Discord"]["channel"].AsULong) is not IMessageChannel
+            fallbackChannel) return;
+
+            await fallbackChannel.SendMessageAsync(embed: embed.Build());
+
+            return;
+        }
+
+        await channel.SendMessageAsync(embed: embed.Build());
+    }
+
     public static async Task LogNotification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
