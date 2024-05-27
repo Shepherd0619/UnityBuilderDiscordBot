@@ -163,6 +163,41 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         await channel.SendMessageAsync(embed: embed.Build());
     }
 
+    /// <summary>
+    /// 发送Embed样式的通知（预设标题）
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="project"></param>
+    /// <param name="notificationCategory"></param>
+    /// <returns></returns>
+    public static async Task NotificationEmbed(string message, UnityProjectModel project, NotificationCategory notificationCategory = NotificationCategory.Default)
+    {
+        string title = string.Empty;
+        switch(notificationCategory) 
+        {
+            case NotificationCategory.Default: 
+                title = "Notification";
+                break;
+
+            case NotificationCategory.BuildSuccess:
+                title = "Build Success";
+                break;
+
+            case NotificationCategory.BuildFailure:
+                title = "Build Failure";
+                break;
+        }
+
+        await NotificationEmbed(title, message, project);
+    }
+
+    public enum NotificationCategory
+    {
+        Default,
+        BuildSuccess,
+        BuildFailure,
+    }
+
     public static async Task LogNotification(string message)
     {
         if (await DiscordStartupService.Discord.GetChannelAsync(
@@ -194,14 +229,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} build completed!", project);
+                await NotificationEmbed($"{targetPlatform} build completed!", project, NotificationCategory.BuildSuccess);
             else
-                await Notification(
-                    $"**{project}** {targetPlatform} build failed! \n\n{t.Result.Message}", project);
+                await NotificationEmbed(
+                    $"{targetPlatform} build failed! \n\n{t.Result.Message}", project, NotificationCategory.BuildFailure);
         });
         
-        var respondMsg = $"**{project}** {targetPlatform} build started!";
-        Notification(respondMsg, project);
+        var respondMsg = $"{targetPlatform} build started!";
+        NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
     }
 
@@ -225,14 +260,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         task.ContinueWith(async t =>
         {
             if (t.Result.Success)
-                await Notification($"**{project}** {targetPlatform} hot update build completed!", project);
+                await NotificationEmbed($"{targetPlatform} hot update build completed!", project, NotificationCategory.BuildSuccess);
             else
-                await Notification(
-                    $"**{project}** {targetPlatform} hot update build failed! \n\n{t.Result.Message}", project);
+                await NotificationEmbed(
+                    $"{targetPlatform} hot update build failed! \n\n{t.Result.Message}", project, NotificationCategory.BuildFailure);
         });
 
-        var respondMsg = $"**{project}** {targetPlatform} hot update build started!";
-        Notification(respondMsg, project);
+        var respondMsg = $"{targetPlatform} hot update build started!";
+        NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
     }
     #endregion
