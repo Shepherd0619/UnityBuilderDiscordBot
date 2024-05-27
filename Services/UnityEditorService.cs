@@ -378,7 +378,7 @@ public class UnityEditorService : IHostedService
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         //await DiscordInteractionModule.Notification(buildStartLog, project);
-        await DiscordInteractionModule.NotificationEmbed("Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
+        await DiscordInteractionModule.NotificationEmbed($"Start building {targetPlatform} player for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
@@ -492,7 +492,7 @@ public class UnityEditorService : IHostedService
         output.Append(buildStartLog);
         _logger.LogInformation(buildStartLog);
         //await DiscordInteractionModule.Notification(buildStartLog, project);
-        await DiscordInteractionModule.NotificationEmbed("Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
+        await DiscordInteractionModule.NotificationEmbed($"Start building {targetPlatform} hot update for {project.name} ({project.path}). CommandLineArgs: {sb}", project);
 
         await process.WaitForExitAsync();
         RunningProcesses.Remove(project);
