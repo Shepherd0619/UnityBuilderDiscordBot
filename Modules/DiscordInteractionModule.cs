@@ -131,7 +131,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     /// <param name="message"></param>
     /// <param name="project"></param>
     /// <returns></returns>
-    public static async Task NotificationEmbed(string title, string message, UnityProjectModel project)
+    public static async Task NotificationEmbed(string title, string message, UnityProjectModel project, Color? color = null)
     {
         var embed = new EmbedBuilder()
         {
@@ -140,6 +140,8 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             Description = message,
             Footer = new EmbedFooterBuilder() { Text = $"{project.name}({project.path})" }
         };
+
+        embed.Color = color;
 
         if (string.IsNullOrWhiteSpace(project.notificationChannel))
         {
@@ -164,7 +166,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     /// <summary>
-    /// 发送Embed样式的通知（预设标题）
+    /// 发送Embed样式的通知（预设标题和颜色）
     /// </summary>
     /// <param name="message"></param>
     /// <param name="project"></param>
@@ -173,22 +175,27 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     public static async Task NotificationEmbed(string message, UnityProjectModel project, NotificationCategory notificationCategory = NotificationCategory.Default)
     {
         string title = string.Empty;
+        Color? color = null;
+
         switch(notificationCategory) 
         {
             case NotificationCategory.Default: 
                 title = "Notification";
+                color = Color.LightGrey;
                 break;
 
             case NotificationCategory.BuildSuccess:
                 title = "Build Success";
+                color = Color.Green;
                 break;
 
             case NotificationCategory.BuildFailure:
                 title = "Build Failure";
+                color = Color.Red;
                 break;
         }
 
-        await NotificationEmbed(title, message, project);
+        await NotificationEmbed(title, message, project, color);
     }
 
     public enum NotificationCategory
