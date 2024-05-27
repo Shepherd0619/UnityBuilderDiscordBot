@@ -138,7 +138,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             // Embed property can be set within object initializer
             Title = title,
             Description = message,
-            Footer = new EmbedFooterBuilder() { Text = $"{project.name}({project.path})" }
+            Footer = new EmbedFooterBuilder() { Text = $"{project.name} ({project.path})" }
         };
 
         embed.Color = color;
