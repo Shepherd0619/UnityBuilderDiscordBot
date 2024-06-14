@@ -307,7 +307,8 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             return;
         }
 
-        await FollowupAsync($"Successfully switch {projectName}'s branch from {ogBranch} to {branchName}!");
+        await FollowupAsync($"Successfully switch {projectName}'s branch from {ogBranch} to {branchName}!", ephemeral: false);
+        NotificationEmbed($"Switched branch from {ogBranch} to {branchName}!", project);
     }
     #endregion
 }
