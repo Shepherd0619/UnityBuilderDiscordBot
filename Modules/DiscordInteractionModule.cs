@@ -281,29 +281,33 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
 
     #region 分支运行时切换
     [SlashCommand("switch-branch", "Switch to a certain branch of certain project")]
-    public async Task<Task> SwitchBranch(string branchName, string projectName)
+    public async Task SwitchBranch(string branchName, string projectName)
     {
+        await DeferAsync(ephemeral: true);
         UnityEditorService.Instance.TryGetProject(projectName, out var project);
         if(project == null)
         {
-            return Task.FromResult(RespondAsync($"No project called {projectName}", ephemeral: true));
+            await FollowupAsync($"No project called {projectName}", ephemeral: true);
+            return;
         }
 
         if(UnityEditorService.Instance.RunningProcesses.ContainsKey(project))
         {
-            return Task.FromResult(RespondAsync($"Project {projectName} is still running! Try again later.", ephemeral: true));
+            await FollowupAsync($"Project {projectName} is still running! Try again later.", ephemeral: true);
+            return;
         }
 
         var ogBranch = project.branch;
         project.branch = branchName;
-        await DeferAsync(ephemeral: true);
+        
         var result = await UnityEditorService.Instance.TryCheckout(project);
         if(!result.Success)
         {
-            return Task.FromResult(RespondAsync($"Failed to switch {projectName}'s branch from {ogBranch} to {branchName}!", ephemeral: true));
+            await FollowupAsync($"Failed to switch {projectName}'s branch from {ogBranch} to {branchName}!\n```{result.Message}```", ephemeral: true);
+            return;
         }
 
-        return Task.FromResult(RespondAsync("Successfully switch {projectName}'s branch from {ogBranch} to {branchName}!"));
+        await FollowupAsync("Successfully switch {projectName}'s branch from {ogBranch} to {branchName}!");
     }
     #endregion
 }
