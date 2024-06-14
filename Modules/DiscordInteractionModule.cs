@@ -278,4 +278,32 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         return RespondAsync(respondMsg);
     }
     #endregion
+
+    #region 分支运行时切换
+    [SlashCommand("switch-branch", "Switch to a certain branch of certain project")]
+    public async Task<Task> SwitchBranch(string branchName, string projectName)
+    {
+        UnityEditorService.Instance.TryGetProject(projectName, out var project);
+        if(project == null)
+        {
+            return Task.FromResult(RespondAsync($"No project called {projectName}", ephemeral: true));
+        }
+
+        if(UnityEditorService.Instance.RunningProcesses.ContainsKey(project))
+        {
+            return Task.FromResult(RespondAsync($"Project {projectName} is still running! Try again later.", ephemeral: true));
+        }
+
+        var ogBranch = project.branch;
+        project.branch = branchName;
+        await DeferAsync(ephemeral: true);
+        var result = await UnityEditorService.Instance.TryCheckout(project);
+        if(!result.Success)
+        {
+            return Task.FromResult(RespondAsync($"Failed to switch {projectName}'s branch from {ogBranch} to {branchName}!", ephemeral: true));
+        }
+
+        return Task.FromResult(RespondAsync("Successfully switch {projectName}'s branch from {ogBranch} to {branchName}!"));
+    }
+    #endregion
 }
