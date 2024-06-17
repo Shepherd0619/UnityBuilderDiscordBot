@@ -279,19 +279,14 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
     }
 
     [SlashCommand("retry-deployment", "This command will skip the hot update build and retry the deployment.")]
-    public async Task RetryDeployment(string projectName)
+    public Task RetryDeployment(string projectName)
     {
-        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project)) 
-        { 
-            await RespondAsync($"Project **{projectName}** not found!"); 
-            return;
-        }
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
+            return RespondAsync($"Project **{projectName}** not found!");
 
         UnityEditorService.Instance.ExecuteDeploymentAction(project);
 
-        await Task.Delay(TimeSpan.FromSeconds(3));
-
-        await RespondAsync($"Deployment for {projectName} started.");
+        return RespondAsync($"Deployment for {projectName} started.");
     }
     #endregion
 
