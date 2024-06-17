@@ -286,6 +286,7 @@ public class UnityEditorService : IHostedService
         result = await TryCheckout(project);
         if (!result.Success) return result;
 
+        DiscordInteractionModule.NotificationEmbed("Current Branch", project.branch, project);
         var currentCommit = await TryGetCurrentCommit(project);
         if (!string.IsNullOrWhiteSpace(currentCommit)) 
         { 
