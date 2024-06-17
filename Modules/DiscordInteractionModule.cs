@@ -284,7 +284,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
             return RespondAsync($"Project **{projectName}** not found!");
 
-        UnityEditorService.Instance.ExecuteDeploymentAction(project);
+        Task.Run(async() => await UnityEditorService.Instance.ExecuteDeploymentAction(project));
 
         return RespondAsync($"Deployment for {projectName} started.");
     }
