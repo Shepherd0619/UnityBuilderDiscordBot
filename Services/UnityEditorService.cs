@@ -563,7 +563,7 @@ public class UnityEditorService : IHostedService
         return result;
     }
 
-    private async Task<ResultMsg> ExecuteDeploymentAction(UnityProjectModel project)
+    public async Task<ResultMsg> ExecuteDeploymentAction(UnityProjectModel project)
     {
         if (project.deployment.Count <= 0)
         {

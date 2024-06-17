@@ -277,6 +277,17 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
     }
+
+    [SlashCommand("retry-deployment", "This command will skip the hot update build and retry the deployment.")]
+    public Task RetryDeployment(string projectName, string targetPlatform)
+    {
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
+            return RespondAsync($"Project **{projectName}** not found!");
+
+        UnityEditorService.Instance.ExecuteDeploymentAction(project);
+
+        return RespondAsync($"Deployment for {projectName} started.");
+    }
     #endregion
 
     #region 分支运行时切换
