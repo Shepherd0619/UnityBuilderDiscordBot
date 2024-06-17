@@ -138,7 +138,7 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
             // Embed property can be set within object initializer
             Title = title,
             Description = message,
-            Footer = new EmbedFooterBuilder() { Text = $"{project.name} ({project.path})" }
+            Footer = new EmbedFooterBuilder() { Text = $"{project.name} (Branch: {project.branch}) (Path: {project.path})" }
         };
 
         embed.Color = color;
@@ -276,6 +276,17 @@ public class DiscordInteractionModule : InteractionModuleBase<SocketInteractionC
         var respondMsg = $"{targetPlatform} hot update build started!";
         NotificationEmbed(respondMsg, project);
         return RespondAsync(respondMsg);
+    }
+
+    [SlashCommand("retry-deployment", "This command will skip the hot update build and retry the deployment.")]
+    public Task RetryDeployment(string projectName)
+    {
+        if (!UnityEditorService.Instance.TryGetProject(projectName, out var project))
+            return RespondAsync($"Project **{projectName}** not found!");
+
+        Task.Run(async() => await UnityEditorService.Instance.ExecuteDeploymentAction(project));
+
+        return RespondAsync($"Deployment for {projectName} started.");
     }
     #endregion
 

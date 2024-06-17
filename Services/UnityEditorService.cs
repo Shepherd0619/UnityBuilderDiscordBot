@@ -286,6 +286,7 @@ public class UnityEditorService : IHostedService
         result = await TryCheckout(project);
         if (!result.Success) return result;
 
+        DiscordInteractionModule.NotificationEmbed("Current Branch", project.branch, project);
         var currentCommit = await TryGetCurrentCommit(project);
         if (!string.IsNullOrWhiteSpace(currentCommit)) 
         { 
@@ -423,6 +424,7 @@ public class UnityEditorService : IHostedService
         result = await TryCheckout(project);
         if (!result.Success) return result;
         
+        DiscordInteractionModule.NotificationEmbed("Current Branch", project.branch, project);
         var currentCommit = await TryGetCurrentCommit(project);
         if (!string.IsNullOrWhiteSpace(currentCommit)) 
         { 
@@ -562,7 +564,7 @@ public class UnityEditorService : IHostedService
         return result;
     }
 
-    private async Task<ResultMsg> ExecuteDeploymentAction(UnityProjectModel project)
+    public async Task<ResultMsg> ExecuteDeploymentAction(UnityProjectModel project)
     {
         if (project.deployment.Count <= 0)
         {
