@@ -459,7 +459,7 @@ public class UnityEditorService : IHostedService
                 break;
 
             case TargetPlatform.Linux:
-                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux64");
                 break;
 
             default:
