@@ -339,6 +339,14 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.WindowsServer:
                 fileExtension = ".exe";
                 break;
+            
+            case TargetPlatform.Linux:
+                fileExtension = ".x86_64";
+                break;
+            
+            case TargetPlatform.LinuxServer:
+                fileExtension = ".x86_64";
+                break;
         }
 
         sb.Append(
@@ -451,7 +459,7 @@ public class UnityEditorService : IHostedService
                 break;
 
             case TargetPlatform.Linux:
-                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux");
+                sb.Append("-executeMethod JenkinsBuild.BuildHotUpdateForLinux64");
                 break;
 
             default:
