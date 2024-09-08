@@ -67,11 +67,11 @@ public class UnityEditorService : IHostedService
     {
         EditorInstallations = new Dictionary<string, string>();
         foreach (JSONNode node in ConfigurationUtility.Configuration["Unity"].AsArray)
-        foreach (var kvp in node)
-        {
-            EditorInstallations.Add(kvp.Key, kvp.Value.Value);
-            _logger.LogInformation($"[{GetType()}] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
-        }
+            foreach (var kvp in node)
+            {
+                EditorInstallations.Add(kvp.Key, kvp.Value.Value);
+                _logger.LogInformation($"[{GetType()}] Found a Unity Editor installation! {kvp.Key}, {kvp.Value}");
+            }
 
         UnityProjects = new List<UnityProjectModel>();
         foreach (JSONNode node in ConfigurationUtility.Configuration["Projects"])
@@ -87,6 +87,10 @@ public class UnityEditorService : IHostedService
 
                     case "path":
                         model.path = kvp.Value;
+                        break;
+
+                    case "symLinkPath":
+                        model.symLinkPath = kvp.Value;
                         break;
 
                     case "unityVersion":
@@ -108,7 +112,7 @@ public class UnityEditorService : IHostedService
                     case "branch":
                         model.branch = kvp.Value;
                         break;
-                    
+
                     case "deployment":
                         model.deployment = new List<IAction>();
                         foreach (var action in node["deployment"])
@@ -122,7 +126,7 @@ public class UnityEditorService : IHostedService
                                         RemotePath = action.Value["RemotePath"]
                                     });
                                     break;
-                                
+
                                 default:
                                     _logger.LogWarning(
                                         $"[{GetType()}.Initialize] Unsupported Deployment Action \"{action.Key}\".");
@@ -130,11 +134,11 @@ public class UnityEditorService : IHostedService
                             }
                         }
                         break;
-                    
+
                     case "notificationChannel":
                         model.notificationChannel = kvp.Value;
                         break;
-                    
+
                     case "ssh":
                         model.ssh = kvp.Value;
                         CredentialServiceManager.Instance.RegisterSshCredentialService(model.ssh);
@@ -288,8 +292,8 @@ public class UnityEditorService : IHostedService
 
         DiscordInteractionModule.NotificationEmbed("Current Branch", project.branch, project);
         var currentCommit = await TryGetCurrentCommit(project);
-        if (!string.IsNullOrWhiteSpace(currentCommit)) 
-        { 
+        if (!string.IsNullOrWhiteSpace(currentCommit))
+        {
             //DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project); 
             DiscordInteractionModule.NotificationEmbed("Current Commit", $"{currentCommit}", project);
         }
@@ -297,7 +301,19 @@ public class UnityEditorService : IHostedService
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
-        sb.Append($"-projectPath \"{project.path}\" ");
+
+        // 路径使用判断
+        string actualProjectPath;
+        if (string.IsNullOrWhiteSpace(project.symLinkPath))
+            actualProjectPath = project.path;
+        else
+        {
+            _logger.LogWarning($"[{GetType()}] symLinkPath: {project.symLinkPath}");
+            actualProjectPath = project.symLinkPath;
+        }
+
+        sb.Append($"-projectPath \"{actualProjectPath}\" ");
+
         switch (targetPlatform)
         {
             case TargetPlatform.Windows:
@@ -339,11 +355,11 @@ public class UnityEditorService : IHostedService
             case TargetPlatform.WindowsServer:
                 fileExtension = ".exe";
                 break;
-            
+
             case TargetPlatform.Linux:
                 fileExtension = ".x86_64";
                 break;
-            
+
             case TargetPlatform.LinuxServer:
                 fileExtension = ".x86_64";
                 break;
@@ -393,7 +409,7 @@ public class UnityEditorService : IHostedService
         RunningProcesses.Remove(project);
 
         var buildExitLog =
-            $"\n[{GetType()}] {project.name}({project.path}) has exited on {process.ExitTime} with code {process.ExitCode}.";
+            $"\n[{GetType()}] {project.name}({actualProjectPath}) has exited on {process.ExitTime} with code {process.ExitCode}.";
         output.Append(buildExitLog);
         _logger.LogWarning(buildExitLog);
         await DiscordInteractionModule.Notification(buildExitLog, project);
@@ -431,11 +447,11 @@ public class UnityEditorService : IHostedService
 
         result = await TryCheckout(project);
         if (!result.Success) return result;
-        
+
         DiscordInteractionModule.NotificationEmbed("Current Branch", project.branch, project);
         var currentCommit = await TryGetCurrentCommit(project);
-        if (!string.IsNullOrWhiteSpace(currentCommit)) 
-        { 
+        if (!string.IsNullOrWhiteSpace(currentCommit))
+        {
             //DiscordInteractionModule.Notification($"Current commit for {projectName} is:\n{currentCommit}", project);
             DiscordInteractionModule.NotificationEmbed("Current Commit", $"{currentCommit}", project);
         }
@@ -443,7 +459,19 @@ public class UnityEditorService : IHostedService
         var sb = new StringBuilder();
         var timestamp = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds();
         sb.Append(NecessaryCommandLineArgs);
-        sb.Append($"-projectPath \"{project.path}\" ");
+
+        // 路径使用判断
+        string actualProjectPath;
+        if (string.IsNullOrWhiteSpace(project.symLinkPath))
+            actualProjectPath = project.path;
+        else
+        {
+            _logger.LogWarning($"[{GetType()}] symLinkPath: {project.symLinkPath}");
+            actualProjectPath = project.symLinkPath;
+        }
+
+        sb.Append($"-projectPath \"{actualProjectPath}\" ");
+
         switch (targetPlatform)
         {
             case TargetPlatform.Windows64:
@@ -583,7 +611,7 @@ public class UnityEditorService : IHostedService
                 Message = "No deployment action defined."
             };
         }
-        
+
         _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Start executing deployment for {project.name}.");
         DiscordInteractionModule.NotificationEmbed($"Start executing deployment for {project.name}.", project);
 
@@ -598,7 +626,7 @@ public class UnityEditorService : IHostedService
                 return result;
             }
         }
-        
+
         _logger.LogInformation($"[{GetType()}.ExecuteDeploymentAction] Finished for {project.name}.");
         DiscordInteractionModule.NotificationEmbed($"Finished executing deployment for {project.name}.", project);
 
